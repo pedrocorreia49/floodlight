@@ -691,7 +691,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 							"timeout flow from switch {}. Removing it from the SFP DB", msg, sw);
 				} else if (OFFlowRemovedReason.HARD_TIMEOUT == reason || OFFlowRemovedReason.IDLE_TIMEOUT == reason) {
 					/* Remove the Flow from the DB since it timed out */
-					log.debug("Received an IDLE or HARD timeout for an SFP flow. Removing it from the SFP DB");
+					log.info("Received an IDLE or HARD timeout for an SFP flow. Removing it from the SFP DB");
 				} else {
 					log.debug("Received flow_removed message for reason {}. Removing it from the SFP DB", reason);
 				}
@@ -700,14 +700,16 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 				 * flow based on this message, but we can get the table values for this switch and search.
 				 */
 				String flowToRemove = null;
-				Map<String, OFMessage> flowsByName = getEntries(sw.getId())
-						.entrySet()
-						.stream()
-						.filter(e -> e.getValue() instanceof OFFlowMod)
-						.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+				Map<String, OFMessage> flowsByName = getEntries(sw.getId());
+						// .entrySet()
+						// .stream()
+						// .filter(e -> e.getValue() instanceof OFFlowMod)
+						// .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
 
 				for (Map.Entry<String, OFMessage> e : flowsByName.entrySet()) {
 					OFFlowMod f = (OFFlowMod) e.getValue();
+					log.info("FUCK "+e.getKey());
+					flowToRemove = e.getKey();
 					if (msg.getCookie().equals(f.getCookie()) &&
 							(msg.getVersion().compareTo(OFVersion.OF_12) < 0 ? true : msg.getHardTimeout() == f.getHardTimeout()) &&
 							msg.getIdleTimeout() == f.getIdleTimeout() &&
@@ -716,6 +718,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 							(msg.getVersion().compareTo(OFVersion.OF_10) == 0 ? true : msg.getTableId().equals(f.getTableId()))
 							) {
 						flowToRemove = e.getKey();
+						log.info("Flow removed "+flowToRemove);
 						break;
 					}
 				}
@@ -731,7 +734,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 				 * the reason for the flow being removed.
 				 */
 				if (flowToRemove != null) {
-					log.warn("Removing flow {} for reason {}", flowToRemove, reason);
+					log.info("Removing flow {} for reason {}", flowToRemove, reason);
 					deleteEntry(flowToRemove);
 				}
 
@@ -998,6 +1001,11 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 	@Override
 	public Map<String, OFMessage> getEntries(DatapathId dpid) {
 		Map<String, OFMessage> m = entriesFromStorage.get(dpid.toString());
+		if(m==null){
+			log.info("MAP EMPTY");
+		}else{
+			log.info("NOT EMPTY");
+		}
 		return m == null ? Collections.emptyMap() : m;
 	}
 

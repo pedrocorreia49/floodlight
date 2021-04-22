@@ -31,7 +31,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
+import net.floodlightcontroller.linkdiscovery.Link;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
@@ -70,6 +72,7 @@ import net.floodlightcontroller.debugcounter.IDebugCounterService.MetaData;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
+import net.floodlightcontroller.linkdiscovery.internal.LinkDiscoveryManager;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
@@ -344,8 +347,18 @@ ILoadBalancerService, IOFMessageListener {
 						statisticsService.collectStatistics(true);
 						memberPortBandwidth = collectSwitchPortBandwidth(pool);
 					}
-
-					LBMember member = members.get(pool.pickMember(client,memberPortBandwidth,memberWeights,memberStatus));
+					LBMember member = null;
+					if(pool.lbMethod==LBPool.SPL && statisticsService!=null){
+						String x = pool.pickMember(deviceManagerService,topologyService,client,members,sw,pi,routingEngineService);
+						member = members.get(x);
+						if(member!=null){
+							log.info("SPL PORTO ALLLLLEZZZZZ ");
+						}
+						
+					}else{
+						member = members.get(pool.pickMember(client,memberPortBandwidth,memberWeights,memberStatus));
+					}
+					
 					if(member == null)			//fix dereference violations
 						return Command.CONTINUE;
 
@@ -571,6 +584,7 @@ ILoadBalancerService, IOFMessageListener {
 				if (!srcDap.equals(dstDap) && 
 						(srcCluster != null) && 
 						(dstCluster != null)) {
+					//routingEngineService.setPathMetric(IRoutingService.PATH_METRIC.LATENCY);
 					Path routeIn = 
 							routingEngineService.getPath(srcDap.getNodeId(),
 									srcDap.getPortId(),
@@ -581,17 +595,18 @@ ILoadBalancerService, IOFMessageListener {
 									dstDap.getPortId(),
 									srcDap.getNodeId(),
 									srcDap.getPortId());
-
 					// use static flow entry pusher to push flow mod along in and out path
 					// in: match src client (ip, port), rewrite dest from vip ip/port to member ip/port, forward
 					// out: match dest client (ip, port), rewrite src from member ip/port to vip ip/port, forward
-
+					
 					if (! routeIn.getPath().isEmpty()) {
 						pushStaticVipRoute(true, routeIn, client, member, sw, ip_pkt.getDestinationAddress());
+					
 					}
 
 					if (! routeOut.getPath().isEmpty()) {
 						pushStaticVipRoute(false, routeOut, client, member, sw, ip_pkt.getDestinationAddress());
+						
 					}
 
 				}
@@ -626,8 +641,8 @@ ILoadBalancerService, IOFMessageListener {
 
 				OFFlowMod.Builder fmb = pinSwitch.getOFFactory().buildFlowAdd();
 
-				fmb.setIdleTimeout(FlowModUtils.INFINITE_TIMEOUT);
-				fmb.setHardTimeout(FlowModUtils.INFINITE_TIMEOUT);
+				fmb.setIdleTimeout(30);
+				fmb.setHardTimeout(1000);
 				fmb.setBufferId(OFBufferId.NO_BUFFER);
 				fmb.setOutPort(OFPort.ANY);
 				fmb.setCookie(U64.of(0));  

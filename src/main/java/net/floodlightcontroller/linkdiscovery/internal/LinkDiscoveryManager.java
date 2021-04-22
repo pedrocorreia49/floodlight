@@ -1768,7 +1768,7 @@ IFloodlightModule, IInfoProvider {
 	/**
 	 * Sets the IStorageSource to use for Topology
 	 *
-	 * @param storageSource
+	 * @param storageSourceService
 	 *            the storage source to use
 	 */
 	public void setStorageSource(IStorageSourceService storageSourceService) {

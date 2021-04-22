@@ -62,7 +62,7 @@ public class StatisticsCollector implements IFloodlightModule, IStatisticsServic
 	protected IDebugCounterService debugCounterService;
 	private IDebugCounter counterPacketOut;
 
-	private static boolean isEnabled = false;
+	private static boolean isEnabled = true;
 
 	private static int portStatsInterval = 10; /* could be set by REST API, so not final */
 	private static int flowStatsInterval = 11;

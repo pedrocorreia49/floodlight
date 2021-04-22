@@ -67,7 +67,8 @@ ITopologyManagerBackend, ILinkDiscoveryListener, IOFMessageListener {
     private static Logger log = LoggerFactory.getLogger(TopologyManager.class);
     public static final String MODULE_NAME = "topology";
 
-    protected static volatile PATH_METRIC pathMetric = PATH_METRIC.HOPCOUNT_AVOID_TUNNELS; //default: compute paths on hop count
+    // protected static volatile PATH_METRIC pathMetric = PATH_METRIC.HOPCOUNT_AVOID_TUNNELS; //default: compute paths on hop count
+    protected static volatile PATH_METRIC pathMetric = PATH_METRIC.LATENCY; //default: compute paths on hop count
     
     /**
      * Maximum number of route entries stored in memory.
