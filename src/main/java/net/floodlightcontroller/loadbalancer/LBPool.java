@@ -143,11 +143,15 @@ public class LBPool {
 	public String pickMember(IDeviceService ids, ITopologyService its, IPClient client,
 			HashMap<String, LBMember> totalMembers, IOFSwitch sw, OFPacketIn pi, IRoutingService routingEngineService) {
 		Collection<? extends IDevice> allDevices = ids.getAllDevices();
+		HashMap<String,Long> membersLatency = new HashMap<>();
+		HashMap<String,Integer> membersHopsCount = new HashMap<>();
+
 		IDevice srcDevice = null;
 		IDevice dstDevice = null;
 		this.its = its;
 		String picked = null;
-		Integer latency = null;
+		Long latency = null;
+		Integer hopCount = null;
 		for (String s : members) {
 			LBMember member = totalMembers.get(s);
 			dstDevice = null;
@@ -236,14 +240,13 @@ public class LBPool {
 						Path routeOut = routingEngineService.getPath(dstDap.getNodeId(), dstDap.getPortId(),
 								srcDap.getNodeId(), srcDap.getPortId());
 
-						if (!routeIn.getPath().isEmpty()) {
+						if (!routeIn.getPath().isEmpty()&&!routeOut.getPath().isEmpty()) {
 							setPathCosts(routeIn, its);
-							auxLatency += (int) routeIn.getLatency().getValue();
-						}
-						if (!routeOut.getPath().isEmpty()) {
 							setPathCosts(routeOut, its);
-							auxLatency += (int) routeOut.getLatency().getValue();
+							membersLatency.put(s,routeIn.getLatency().getValue()+routeOut.getLatency().getValue());
+							memebersHopsCount.put(s,routeIn.getHopCount()+routeOut.getHopCount());
 						}
+						
 					}
 					iSrcDaps++;
 					iDstDaps++;
@@ -259,6 +262,22 @@ public class LBPool {
 				picked = s;
 				log.info("Member {} picked with latency of {}",s,latency);
 			}
+		}
+		for(String m : members){
+			if(membersLatency.get(m)!=0&&membersLatency.get(m)<latency){
+				latency = membersLatency.get(m);
+				picked = m;
+			}
+		}
+		if(picked.equals(null)){
+			log.info("Picking member by hop count");
+			for(String m: members){
+				if(membersHopsCount.get(m) < hopCount || hopCount.equals(null)){
+					hopCount = membersHopsCount.get(m);
+					picked = m;
+				}
+			}
+			log.info("Member {} picked by hop count",picked);
 		}
 
 		return picked;
@@ -400,7 +419,7 @@ public class LBPool {
 
 	public void setPathCosts(Path p, ITopologyService its) {
 		U64 cost = U64.ZERO;
-
+		p.setHopCount(p.getPath().size()/2);
 		Map<DatapathId, Set<Link>> links = its.getAllLinks();
 		for (int i = 0; i < p.getPath().size() - 1; i++) {
 			DatapathId src = p.getPath().get(i).getNodeId();
