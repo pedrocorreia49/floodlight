@@ -708,7 +708,6 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 
 				for (Map.Entry<String, OFMessage> e : flowsByName.entrySet()) {
 					OFFlowMod f = (OFFlowMod) e.getValue();
-					log.info("FUCK "+e.getKey());
 					flowToRemove = e.getKey();
 					if (msg.getCookie().equals(f.getCookie()) &&
 							(msg.getVersion().compareTo(OFVersion.OF_12) < 0 ? true : msg.getHardTimeout() == f.getHardTimeout()) &&

@@ -152,6 +152,7 @@ public class LBPool {
 		String picked = null;
 		Long latency = null;
 		Integer hopCount = null;
+		ArrayList<String> leastLatencyMembers = new ArrayList<>();
 		for (String s : members) {
 			LBMember member = totalMembers.get(s);
 			dstDevice = null;
@@ -244,7 +245,8 @@ public class LBPool {
 							setPathCosts(routeIn, its);
 							setPathCosts(routeOut, its);
 							membersLatency.put(s,routeIn.getLatency().getValue()+routeOut.getLatency().getValue());
-							memebersHopsCount.put(s,routeIn.getHopCount()+routeOut.getHopCount());
+							membersHopsCount.put(s,routeIn.getHopCount()+routeOut.getHopCount());
+							log.info("Member {} has latency {}", s, membersLatency.get(s));
 						}
 						
 					}
@@ -257,28 +259,54 @@ public class LBPool {
 				}
 			}
 
-			if (latency == null || latency >= auxLatency) {
-				latency = auxLatency;
-				picked = s;
-				log.info("Member {} picked with latency of {}",s,latency);
-			}
 		}
 		for(String m : members){
-			if(membersLatency.get(m)!=0&&membersLatency.get(m)<latency){
+			if(latency == null){
+				leastLatencyMembers.add(m);
 				latency = membersLatency.get(m);
-				picked = m;
-			}
-		}
-		if(picked.equals(null)){
-			log.info("Picking member by hop count");
-			for(String m: members){
-				if(membersHopsCount.get(m) < hopCount || hopCount.equals(null)){
-					hopCount = membersHopsCount.get(m);
-					picked = m;
+			}else{
+				if((membersLatency.get(m) <= latency)){
+					if(membersLatency.get(m) == latency){
+						leastLatencyMembers.add(m);
+					}else{
+						latency = membersLatency.get(m);
+						leastLatencyMembers.clear();
+						leastLatencyMembers.add(m);
+					}
 				}
 			}
-			log.info("Member {} picked by hop count",picked);
 		}
+
+		if(leastLatencyMembers.size() > 1){
+			log.info("Picking member by hop count");
+			for(String m: leastLatencyMembers){
+				if(hopCount == null){
+					hopCount = membersHopsCount.get(m);
+					picked = m;
+				}else{
+					if(membersHopsCount.get(m) < hopCount){
+						hopCount = membersHopsCount.get(m);
+						log.info("Evaluating m: {}", hopCount);
+						picked = m;
+					}
+				}
+			}
+			log.info("Member {} picked with latency {} and hopCounts {}", picked, latency, hopCount);
+		}else{
+			picked = leastLatencyMembers.get(0);
+			log.info("Member {} picked with latency {}", picked, latency);
+		}
+
+		// if(picked.equals(null)){
+		// 	log.info("Picking member by hop count");
+		// 	for(String m: members){
+		// 		if(membersHopsCount.get(m) < hopCount || hopCount.equals(null)){
+		// 			hopCount = membersHopsCount.get(m);
+		// 			picked = m;
+		// 		}
+		// 	}
+		// 	log.info("Member {} picked by hop count",picked);
+		// }
 
 		return picked;
 	}

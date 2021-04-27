@@ -981,8 +981,8 @@ public class TopologyInstance {
         }
 
         p.setLatency(cost);
-        log.info("Total cost is {}", p.getLatency());
-        log.info(p.toString());
+        log.debug("Total cost is {}", p.getLatency());
+        log.debug(p.toString());
 
     }
 
