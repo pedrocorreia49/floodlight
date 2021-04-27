@@ -35,7 +35,7 @@ public class LBPoolSerializer extends JsonSerializer<LBPool>{
         jGen.writeStringField("name", pool.name);
         jGen.writeStringField("vipId", pool.vipId);
         jGen.writeStringField("lbMethod", pool.lbMethodToString(pool.lbMethod));
-
+        jGen.writeStringField("Timeout", Integer.toString(pool.timeout));                                       
         for (int i=0; i<pool.members.size(); i++)
             jGen.writeStringField("poolMembers", pool.members.get(i));
 

@@ -143,7 +143,7 @@ public class PoolsResource extends ServerResource {
 					pool.lbMethod = (short) 2;
 				} else if(method.equalsIgnoreCase("WRR")){
 					pool.lbMethod = (short) 3;
-				}else if(method.equalsIgnoreCase("SPL")){
+				}else if(method.equalsIgnoreCase("SLP")){
 					pool.lbMethod = (short)4;
 				}
 
@@ -166,6 +166,9 @@ public class PoolsResource extends ServerResource {
 				pool.vipId = jp.getText();
 				continue;
 			} 
+			if(n.equals("timeout")){
+				pool.timeout = jp.getIntValue();
+			}
 
 			log.warn("Unrecognized field {} in " +
 					"parsing Pools", 

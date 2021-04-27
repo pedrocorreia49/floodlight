@@ -48,6 +48,7 @@ import net.floodlightcontroller.packet.IPacket;
 import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.Path;
 import net.floodlightcontroller.topology.ITopologyService;
+import net.floodlightcontroller.util.FlowModUtils;
 import net.floodlightcontroller.util.OFMessageUtils;
 
 /**
@@ -75,7 +76,7 @@ public class LBPool {
 	protected final static short STATISTICS = 2;
 	protected final static short WEIGHTED_RR = 3;
 	protected final static short SPL = 4;
-
+	protected int timeout = FlowModUtils.INFINITE_TIMEOUT;
 	protected String vipId;
 
 	protected int previousMemberIndex;
@@ -85,6 +86,7 @@ public class LBPool {
 
 	public LBPool() {
 		id = String.valueOf((int) (Math.random() * 10000));
+
 		name = null;
 		tenantId = null;
 		netId = null;
@@ -156,7 +158,6 @@ public class LBPool {
 		for (String s : members) {
 			LBMember member = totalMembers.get(s);
 			dstDevice = null;
-			int auxLatency = 0;
 			for (IDevice d : allDevices) {
 				for (int j = 0; j < d.getIPv4Addresses().length; j++) {
 					if (srcDevice == null && client.ipAddress.equals(d.getIPv4Addresses()[j]))
@@ -463,7 +464,5 @@ public class LBPool {
 			}
 		}
 		p.setLatency(cost);
-		// log.info("LOAD BALANCING Total cost is {}", p.getLatency());
-		// log.info(p.toString());
 	}
 }
