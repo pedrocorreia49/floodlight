@@ -352,7 +352,7 @@ ILoadBalancerService, IOFMessageListener {
 						String x = pool.pickMember(deviceManagerService,topologyService,client,members,sw,pi,routingEngineService);
 						member = members.get(x);
 						if(member!=null){
-							log.info("SPL PORTO ALLLLLEZZZZZ ");
+							log.info("SPL");
 						}
 						
 					}else{

@@ -246,7 +246,7 @@ public class LBPool {
 							setPathCosts(routeOut, its);
 							membersLatency.put(s,routeIn.getLatency().getValue()+routeOut.getLatency().getValue());
 							membersHopsCount.put(s,routeIn.getHopCount()+routeOut.getHopCount());
-							log.info("Member {} has latency {}", s, membersLatency.get(s));
+							log.info("Member {} has latency {} and hopCounts {}", s, membersLatency.get(s), membersHopsCount.get(s));
 						}
 						
 					}
