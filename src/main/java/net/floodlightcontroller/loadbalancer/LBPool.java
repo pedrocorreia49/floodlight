@@ -119,7 +119,7 @@ public class LBPool {
 		} else if (lbMethod == 3) {
 			return "Weighted Round-Robin";
 		} else if (lbMethod == 4) {
-			return "SPL";
+			return "SLP";
 		}
 		return "Invalid Method";
 	}
