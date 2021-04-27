@@ -642,12 +642,11 @@ ILoadBalancerService, IOFMessageListener {
 				OFFlowMod.Builder fmb = pinSwitch.getOFFactory().buildFlowAdd();
 
 				fmb.setIdleTimeout(30);
-				fmb.setHardTimeout(1000);
+				fmb.setHardTimeout(FlowModUtils.INFINITE_TIMEOUT);
 				fmb.setBufferId(OFBufferId.NO_BUFFER);
 				fmb.setOutPort(OFPort.ANY);
 				fmb.setCookie(U64.of(0));  
 				fmb.setPriority(FlowModUtils.PRIORITY_MAX);
-
 
 				if (inBound) {
 					entryName = "inbound-vip-"+ member.vipId+"-client-"+client.ipAddress

@@ -260,7 +260,7 @@ public class LBPool {
 			}
 
 		}
-		for(String m : members){
+		for(String m : membersLatency.keySet()){
 			if(latency == null){
 				leastLatencyMembers.add(m);
 				latency = membersLatency.get(m);
