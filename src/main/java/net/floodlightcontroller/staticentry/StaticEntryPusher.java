@@ -700,20 +700,26 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 				 * flow based on this message, but we can get the table values for this switch and search.
 				 */
 				String flowToRemove = null;
-				Map<String, OFMessage> flowsByName = getEntries(sw.getId());
-						// .entrySet()
-						// .stream()
-						// .filter(e -> e.getValue() instanceof OFFlowMod)
-						// .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+				Map<String, OFMessage> flowsByName = getEntries(sw.getId())
+						.entrySet()
+						.stream()
+						.filter(e -> e.getValue() instanceof OFFlowMod)
+						.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+				
+				for(String s: flowsByName.keySet()){
+					log.info("STATIC PUSHER {}",s);
+				}
 
 				for (Map.Entry<String, OFMessage> e : flowsByName.entrySet()) {
 					OFFlowMod f = (OFFlowMod) e.getValue();
 					// flowToRemove = e.getKey();
+
+
 					if (msg.getCookie().equals(f.getCookie()) &&
 							(msg.getVersion().compareTo(OFVersion.OF_12) < 0 ? true : msg.getHardTimeout() == f.getHardTimeout()) &&
 							msg.getIdleTimeout() == f.getIdleTimeout() &&
 							msg.getMatch().equals(f.getMatch()) &&
-							msg.getPriority() == f.getPriority() &&
+							Math.abs(msg.getPriority()) == Math.abs(f.getPriority()) &&
 							(msg.getVersion().compareTo(OFVersion.OF_10) == 0 ? true : msg.getTableId().equals(f.getTableId()))
 							) {
 						flowToRemove = e.getKey();
