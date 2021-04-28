@@ -143,10 +143,11 @@ public class LBPool {
 	}
 
 	public String pickMember(IDeviceService ids, ITopologyService its, IPClient client,
-			HashMap<String, LBMember> totalMembers, IOFSwitch sw, OFPacketIn pi, IRoutingService routingEngineService) {
+			HashMap<String, LBMember> totalMembers, IOFSwitch sw, OFPacketIn pi, IRoutingService routingEngineService,
+			HashMap<String, Short> memberStatus) {
 		Collection<? extends IDevice> allDevices = ids.getAllDevices();
-		HashMap<String,Long> membersLatency = new HashMap<>();
-		HashMap<String,Integer> membersHopsCount = new HashMap<>();
+		HashMap<String, Long> membersLatency = new HashMap<>();
+		HashMap<String, Integer> membersHopsCount = new HashMap<>();
 
 		IDevice srcDevice = null;
 		IDevice dstDevice = null;
@@ -156,6 +157,13 @@ public class LBPool {
 		Integer hopCount = null;
 		ArrayList<String> leastLatencyMembers = new ArrayList<>();
 		for (String s : members) {
+			if (!memberStatus.isEmpty()) {
+				if (memberStatus.get(s) != 1) {
+					log.info("MEMBER {} NOT AVAILABLE STATUS {}", s, memberStatus.get(s));
+					continue;
+				}
+			}
+
 			LBMember member = totalMembers.get(s);
 			dstDevice = null;
 			for (IDevice d : allDevices) {
@@ -242,14 +250,15 @@ public class LBPool {
 						Path routeOut = routingEngineService.getPath(dstDap.getNodeId(), dstDap.getPortId(),
 								srcDap.getNodeId(), srcDap.getPortId());
 
-						if (!routeIn.getPath().isEmpty()&&!routeOut.getPath().isEmpty()) {
+						if (!routeIn.getPath().isEmpty() && !routeOut.getPath().isEmpty()) {
 							setPathCosts(routeIn, its);
 							setPathCosts(routeOut, its);
-							membersLatency.put(s,routeIn.getLatency().getValue()+routeOut.getLatency().getValue());
-							membersHopsCount.put(s,routeIn.getHopCount()+routeOut.getHopCount());
-							log.info("Member {} has latency {} and hopCounts {}", s, membersLatency.get(s), membersHopsCount.get(s));
+							membersLatency.put(s, routeIn.getLatency().getValue() + routeOut.getLatency().getValue());
+							membersHopsCount.put(s, routeIn.getHopCount() + routeOut.getHopCount());
+							log.info("Member {} has latency {} and hopCounts {}", s, membersLatency.get(s),
+									membersHopsCount.get(s));
 						}
-						
+
 					}
 					iSrcDaps++;
 					iDstDaps++;
@@ -261,52 +270,54 @@ public class LBPool {
 			}
 
 		}
-		for(String m : membersLatency.keySet()){
-			if(latency == null){
-				leastLatencyMembers.add(m);
-				latency = membersLatency.get(m);
-			}else{
-				if((membersLatency.get(m) <= latency)){
-					if(membersLatency.get(m) == latency){
-						leastLatencyMembers.add(m);
-					}else{
-						latency = membersLatency.get(m);
-						leastLatencyMembers.clear();
-						leastLatencyMembers.add(m);
+		if (!membersLatency.isEmpty()) {
+			for (String m : membersLatency.keySet()) {
+				if (latency == null) {
+					leastLatencyMembers.add(m);
+					latency = membersLatency.get(m);
+				} else {
+					if ((membersLatency.get(m) <= latency)) {
+						if (membersLatency.get(m) == latency) {
+							leastLatencyMembers.add(m);
+						} else {
+							latency = membersLatency.get(m);
+							leastLatencyMembers.clear();
+							leastLatencyMembers.add(m);
+						}
 					}
 				}
 			}
-		}
 
-		if(leastLatencyMembers.size() > 1){
-			log.info("Picking member by hop count");
-			for(String m: leastLatencyMembers){
-				if(hopCount == null){
-					hopCount = membersHopsCount.get(m);
-					picked = m;
-				}else{
-					if(membersHopsCount.get(m) < hopCount){
+			if (leastLatencyMembers.size() > 1) {
+				log.info("Picking member by hop count");
+				for (String m : leastLatencyMembers) {
+					if (hopCount == null) {
 						hopCount = membersHopsCount.get(m);
-						log.info("Evaluating m: {}", hopCount);
 						picked = m;
+					} else {
+						if (membersHopsCount.get(m) < hopCount) {
+							hopCount = membersHopsCount.get(m);
+							log.info("Evaluating m: {}", hopCount);
+							picked = m;
+						}
 					}
 				}
+				log.info("Member {} picked with latency {} and hopCounts {}", picked, latency, hopCount);
+			} else {
+				picked = leastLatencyMembers.get(0);
+				log.info("Member {} picked with latency {}", picked, latency);
 			}
-			log.info("Member {} picked with latency {} and hopCounts {}", picked, latency, hopCount);
-		}else{
-			picked = leastLatencyMembers.get(0);
-			log.info("Member {} picked with latency {}", picked, latency);
 		}
 
 		// if(picked.equals(null)){
-		// 	log.info("Picking member by hop count");
-		// 	for(String m: members){
-		// 		if(membersHopsCount.get(m) < hopCount || hopCount.equals(null)){
-		// 			hopCount = membersHopsCount.get(m);
-		// 			picked = m;
-		// 		}
-		// 	}
-		// 	log.info("Member {} picked by hop count",picked);
+		// log.info("Picking member by hop count");
+		// for(String m: members){
+		// if(membersHopsCount.get(m) < hopCount || hopCount.equals(null)){
+		// hopCount = membersHopsCount.get(m);
+		// picked = m;
+		// }
+		// }
+		// log.info("Member {} picked by hop count",picked);
 		// }
 
 		return picked;
@@ -448,7 +459,7 @@ public class LBPool {
 
 	public void setPathCosts(Path p, ITopologyService its) {
 		U64 cost = U64.ZERO;
-		p.setHopCount(p.getPath().size()/2);
+		p.setHopCount(p.getPath().size() / 2);
 		Map<DatapathId, Set<Link>> links = its.getAllLinks();
 		for (int i = 0; i < p.getPath().size() - 1; i++) {
 			DatapathId src = p.getPath().get(i).getNodeId();
