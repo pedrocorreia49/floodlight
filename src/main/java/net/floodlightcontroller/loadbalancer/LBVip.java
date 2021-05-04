@@ -77,6 +77,7 @@ public class LBVip {
                 break;
             case 17: return "UDP";
                 break;
+            default: return "Unknown Protocol";
         }
     }
     
