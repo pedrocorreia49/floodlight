@@ -17,7 +17,7 @@
 package net.floodlightcontroller.loadbalancer;
 
 import java.io.IOException;
-
+import org.projectfloodlight.openflow.types.IpProtocol;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -35,6 +35,7 @@ public class LBPoolSerializer extends JsonSerializer<LBPool>{
         jGen.writeStringField("name", pool.name);
         jGen.writeStringField("vipId", pool.vipId);
         jGen.writeStringField("lbMethod", pool.lbMethodToString(pool.lbMethod));
+        jGen.writeStringField("protocol", IpProtocol.of(pool.protocol).toString());
         jGen.writeStringField("Timeout", Integer.toString(pool.timeout));                                       
         for (int i=0; i<pool.members.size(); i++)
             jGen.writeStringField("poolMembers", pool.members.get(i));
