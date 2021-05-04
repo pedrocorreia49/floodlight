@@ -22,7 +22,7 @@ import org.projectfloodlight.openflow.types.MacAddress;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
-import net.floodlightcontroller.loadbalancer.LoadBalancer.IPClient;
+import net.floodlightcontroller.loadbalancer.IPClient;
 
 /**
  * Data structure for Load Balancer based on
@@ -67,6 +67,17 @@ public class LBVip {
         this.status = 0;
         
         this.proxyMac = MacAddress.of(LB_PROXY_MAC);
+    }
+
+    public String getProtocol(){
+        switch(protocol){
+            case 1: return "ICMP";
+                break;
+            case 6: return "TCP";
+                break;
+            case 17: return "UDP";
+                break;
+        }
     }
     
     public String pickPool(IPClient client) {

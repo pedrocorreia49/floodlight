@@ -36,7 +36,7 @@ public class LBVipSerializer extends JsonSerializer<LBVip>{
         jGen.writeStringField("name", vip.name);
         jGen.writeStringField("id", vip.id);
         jGen.writeStringField("address", String.valueOf(IPv4Address.of(vip.address)));
-        jGen.writeStringField("protocol", Byte.toString(vip.protocol));
+        jGen.writeStringField("protocol", vip.getProtocol());
         jGen.writeStringField("port", Short.toString(vip.port));
 
         jGen.writeEndObject();
