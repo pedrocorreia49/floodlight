@@ -75,9 +75,7 @@ public class LBVip {
                 
             case 6: return "TCP";
                 
-            case 17: return "UDP";
-                
-        
+            case 17: return "UDP";          
         }
         return null;
     }
