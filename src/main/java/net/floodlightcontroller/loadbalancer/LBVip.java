@@ -72,13 +72,12 @@ public class LBVip {
     public String getProtocol(){
         switch(protocol){
             case 1: return "ICMP";
-                break;
+                
             case 6: return "TCP";
-                break;
-            case 17: return "UDP";
-                break;
-            default: return "Unknown Protocol";
+                
+            case 17: return "UDP";          
         }
+        return null;
     }
     
     public String pickPool(IPClient client) {

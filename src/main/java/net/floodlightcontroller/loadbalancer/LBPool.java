@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import net.floodlightcontroller.util.Pair;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.OFPort;
@@ -43,7 +44,7 @@ import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
 import net.floodlightcontroller.linkdiscovery.Link;
-import net.floodlightcontroller.loadbalancer.LoadBalancer.IPClient;
+import net.floodlightcontroller.loadbalancer.IPClient;
 import net.floodlightcontroller.packet.IPacket;
 import net.floodlightcontroller.routing.IRoutingService;
 import net.floodlightcontroller.routing.Path;
@@ -142,13 +143,13 @@ public class LBPool {
 		}
 	}
 
-	public String pickMember(IDeviceService ids, ITopologyService its, IPClient client,
+	public Pair<String,ArrayList<Path>> pickMember(IDeviceService ids, ITopologyService its, IPClient client,
 			HashMap<String, LBMember> totalMembers, IOFSwitch sw, OFPacketIn pi, IRoutingService routingEngineService,
 			HashMap<String, Short> memberStatus) {
 		Collection<? extends IDevice> allDevices = ids.getAllDevices();
 		HashMap<String, Long> membersLatency = new HashMap<>();
 		HashMap<String, Integer> membersHopsCount = new HashMap<>();
-
+		HashMap<String, ArrayList<Path>> membersPaths = new HashMap<>();
 		IDevice srcDevice = null;
 		IDevice dstDevice = null;
 		this.its = its;
@@ -253,6 +254,10 @@ public class LBPool {
 						if (!routeIn.getPath().isEmpty() && !routeOut.getPath().isEmpty()) {
 							setPathCosts(routeIn, its);
 							setPathCosts(routeOut, its);
+							ArrayList<Path> aux = new ArrayList<>();
+							aux.add((routeIn));
+							aux.add((routeOut));
+							membersPaths.put(s,aux);
 							membersLatency.put(s, routeIn.getLatency().getValue() + routeOut.getLatency().getValue());
 							membersHopsCount.put(s, routeIn.getHopCount() + routeOut.getHopCount());
 							log.info("Member {} has latency {} and hopCounts {}", s, membersLatency.get(s),
@@ -320,7 +325,7 @@ public class LBPool {
 		// log.info("Member {} picked by hop count",picked);
 		// }
 
-		return picked;
+		return new Pair<String,ArrayList<Path>>(picked,membersPaths.get(picked));
 	}
 
 	public String pickMember(IPClient client, HashMap<String, U64> membersBandwidth,

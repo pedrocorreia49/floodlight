@@ -142,6 +142,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	protected HashMap<String, Integer> memberIdToIp;
 	protected HashMap<IPClient, LBMember> clientToMember;
 	protected HashMap<Pair<Match, DatapathId>, String> flowToVipId;
+	protected HashMap<Integer,Connection> clientsPaths;
 	protected HashMap<String, SwitchPort> memberIdToSwitchPort;
 	protected HashMap<Integer, TripleHandShake> monitoringConnections;
 	private static ScheduledFuture<?> healthMonitoring;
@@ -171,20 +172,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	// Comparator for sorting by SwitchCluster
 	public Comparator<SwitchPort> clusterIdComparator=new Comparator<SwitchPort>(){@Override public int compare(SwitchPort d1,SwitchPort d2){DatapathId d1ClusterId=topologyService.getClusterId(d1.getNodeId());DatapathId d2ClusterId=topologyService.getClusterId(d2.getNodeId());return d1ClusterId.compareTo(d2ClusterId);}};
 
-	// data structure for storing connected
-	public class IPClient {
-		IPv4Address ipAddress;
-		IpProtocol nw_proto;
-		TransportPort srcPort; // tcp/udp src port. icmp type (OFMatch convention)
-		TransportPort targetPort; // tcp/udp dst port, icmp code (OFMatch convention)
 
-		public IPClient() {
-			ipAddress = IPv4Address.NONE;
-			nw_proto = IpProtocol.NONE;
-			srcPort = TransportPort.NONE;
-			targetPort = TransportPort.NONE;
-		}
-	}
 
 	@Override
 	public String getName() {
@@ -380,13 +368,38 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 					}
 					LBMember member = null;
 					if (pool.lbMethod == LBPool.SPL && statisticsService != null) {
-						String x = pool.pickMember(deviceManagerService, topologyService, client, members, sw, pi,
-								routingEngineService, memberStatus);
-						member = members.get(x);
-						if (member != null) {
-							log.info("SPL");
+						Path routeIn = null;
+						Path routeOut = null;
+						String memberId= null;
+						if(clientsPaths.containsKey(client.hashCode())){
+							log.info("Using Stored Paths for client "+client.ipAddress.toString());
+							routeIn = clientsPaths.get(client.hashCode()).getRouteIn();
+							routeOut = clientsPaths.get(client.hashCode()).getRouteOut();
+							memberId = clientsPaths.get(client.hashCode()).getMemberId();
+							clientsPaths.get(client.hashCode()).setLastConnected(System.currentTimeMillis());
+						}else{
+							Pair<String,ArrayList<Path>> routes= pool.pickMember(deviceManagerService, topologyService, client, members, sw, pi,
+									routingEngineService, memberStatus);
+							routeIn = routes.getValue().get(0);
+							routeOut= routes.getValue().get(1);
+							memberId = routes.getKey();
+							clientsPaths.put(client.hashCode(),new Connection(memberId,routeIn,routeOut,System.currentTimeMillis()));
 						}
 
+						if (members.get(memberId) != null) {
+							log.info("SPL");
+							pushStaticVipRoute(true, routeIn, client, members.get(memberId), sw, ip_pkt.getDestinationAddress());
+							pushStaticVipRoute(false, routeOut, client, members.get(memberId), sw, ip_pkt.getDestinationAddress());
+							pushPacket(pkt, sw, pi.getBufferId(),
+									(pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
+											: pi.getMatch().get(MatchField.IN_PORT),
+									OFPort.TABLE, cntx, true);
+
+						}
+
+
+
+						return Command.STOP;
 					} else {
 						member = members.get(pool.pickMember(client, memberPortBandwidth, memberWeights, memberStatus));
 					}
@@ -890,7 +903,19 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		pushPacket(tcpSyn, theSW, OFBufferId.NO_BUFFER, OFPort.CONTROLLER, npt.getPortId(), cntx, true);
 
 	}
+	private class deleteIdleConnections implements Runnable {
 
+		@Override
+		public void run() {
+			if(!clientsPaths.isEmpty()){
+				for(Integer clientHash: clientsPaths.keySet()){
+					if(System.currentTimeMillis()-clientsPaths.get(clientHash).getLastConnected()>=15*60*1000){
+						clientsPaths.remove(clientHash);
+					}
+				}
+			}
+		}
+	}
 	/**
 	 * Periodical function to set LBPool statistics Gets the statistics through
 	 * StatisticsCollector and sets it in LBPool
@@ -1410,10 +1435,11 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		flowToVipId = new HashMap<>();
 		memberIdToSwitchPort = new HashMap<>();
 		monitoringConnections = new HashMap<>();
-
+		clientsPaths = new HashMap<>();
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetPoolStats(), flowStatsInterval,
 				flowStatsInterval, TimeUnit.SECONDS);
-
+		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 15,
+				15, TimeUnit.SECONDS);
 	}
 
 	@Override

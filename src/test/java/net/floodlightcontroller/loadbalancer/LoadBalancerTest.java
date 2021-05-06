@@ -74,7 +74,7 @@ import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.IEntityClassifierService;
 import net.floodlightcontroller.devicemanager.internal.DefaultEntityClassifier;
 import net.floodlightcontroller.devicemanager.test.MockDeviceManager;
-import net.floodlightcontroller.loadbalancer.LoadBalancer.IPClient;
+import net.floodlightcontroller.loadbalancer.IPClient;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Ethernet;
 import net.floodlightcontroller.packet.ICMP;
@@ -894,7 +894,7 @@ public class LoadBalancerTest extends FloodlightTestCase {
 		testCreatePool();
 		testCreateMember();
 
-		IPClient client = lb.new IPClient();
+		IPClient client = new IPClient();
 
 		HashMap<String, U64> membersBandwidth = new HashMap<String, U64>();
 		membersBandwidth.put(member1.id,U64.of(4999));
@@ -1015,7 +1015,7 @@ public class LoadBalancerTest extends FloodlightTestCase {
 		assertTrue(lb.members.containsKey(member5.id));
 		assertTrue(lb.members.containsKey(member6.id));
 
-		IPClient client = lb.new IPClient();
+		IPClient client = new IPClient();
 		LoadBalancer.isMonitoringEnabled = true;
 
 		HashMap<String, U64> membersBandwidth = new HashMap<String, U64>();
