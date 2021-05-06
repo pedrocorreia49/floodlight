@@ -1,4 +1,6 @@
-To start mininet with this configuration:
+<h3>To start mininet with this configuration:</h3>
 
--> Have this file on the mininet machine
--> sudo python [/pathToFile/]mytopo.py
+<ul>
+<li>Have this file on the mininet machine</li>
+<li>sudo python [/pathToFile/]mytopo.py</li>
+</ul> 
