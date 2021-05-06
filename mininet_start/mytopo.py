@@ -22,6 +22,8 @@ class MyTopo( Topo ):
         h3 = self.addHost('h3', ip='10.0.0.3', defaultRoute=None)
         h4 = self.addHost('h4', ip='10.0.0.4', defaultRoute=None)
         h5 = self.addHost('h5', ip='10.0.0.5', defaultRoute=None)
+        h6 = self.addHost('h6', ip='10.0.0.6', defaultRoute=None)
+        h7 = self.addHost('h7', ip='10.0.0.7', defaultRoute=None)
 
         # Create switches
         s1 = self.addSwitch('s1')
@@ -40,6 +42,8 @@ class MyTopo( Topo ):
         self.addLink(s1, h1)
         self.addLink(s2, h4)
         self.addLink(s4, h5)
+        self.addLink(h6, s1)
+        self.addLink(h7, s5)
 
 def runMyTopo():
     "Bootstrap a Mininet network using the Minimal Topology"
