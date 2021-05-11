@@ -2,5 +2,5 @@
 
 <ul>
 <li>Have this file on the mininet machine</li>
-<li>sudo python [/pathToFile/]mytopo.py</li>
+<li>sudo -E python [/pathToFile/]mytopo.py</li>
 </ul> 
