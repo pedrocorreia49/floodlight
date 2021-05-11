@@ -33,6 +33,11 @@ public class ConfigResource extends ServerResource{
 	public Object config() {
 		ILoadBalancerService lbs = (ILoadBalancerService) getContext().getAttributes().get(ILoadBalancerService.class.getCanonicalName());
 		
+		if(getRequestAttributes().get("monitorId")!=null&&getReference().getPath().contains(LoadBalancerWebRoutable.ENABLE_STR)){
+			String monitorid=(String) getRequestAttributes().get("monitorId");
+			String status = lbs.enablePoolMonitor(monitorid);
+			return Collections.singletonMap("Pool Monitor "+monitorid, status);
+		}else 
 		if (getReference().getPath().contains(LoadBalancerWebRoutable.ENABLE_STR)) {
 			int status = lbs.healthMonitoring(true);
 			if(status == -1){
