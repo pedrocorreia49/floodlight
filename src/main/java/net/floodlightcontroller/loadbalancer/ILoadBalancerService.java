@@ -19,9 +19,6 @@ package net.floodlightcontroller.loadbalancer;
 import java.util.Collection;
 
 import net.floodlightcontroller.core.module.IFloodlightService;
-import net.floodlightcontroller.util.Pair;
-import org.projectfloodlight.openflow.protocol.match.Match;
-import org.projectfloodlight.openflow.types.DatapathId;
 
 public interface ILoadBalancerService extends IFloodlightService {
 
@@ -230,9 +227,4 @@ public interface ILoadBalancerService extends IFloodlightService {
      */
     public String clearAllLb();
     
-    /**
-     * Remove flows from flowToVipId and flowToMemberId
-    **/
-    public void deleteFlow(Match m,DatapathId dpid);
-
 }
