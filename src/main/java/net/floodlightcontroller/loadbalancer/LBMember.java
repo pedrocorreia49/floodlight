@@ -41,6 +41,7 @@ public class LBMember {
     protected String memberId;
     protected String vipId;
     protected short weight;
+    protected short throughput;
     
     public LBMember() {
         id = String.valueOf((int) (Math.random()*10000));
@@ -55,6 +56,7 @@ public class LBMember {
         memberId = null;
         vipId = null;
         weight = -1;
+        throughput=0;
     }
 
     public void setMemberStatistics(ArrayList<Long> bytesIn, ArrayList<Long> bytesOut, int activeFlows) {
