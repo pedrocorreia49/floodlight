@@ -463,32 +463,32 @@ public class LoadBalancerTest extends FloodlightTestCase {
 
 
 		try {
-			member1 = membersResource.jsonToMember(postData1);
+			member1 = membersResource.jsonToMember(postData1, member1);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member2 = membersResource.jsonToMember(postData2);
+			member2 = membersResource.jsonToMember(postData2, member2);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member3 = membersResource.jsonToMember(postData3);
+			member3 = membersResource.jsonToMember(postData3, member3);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member4 = membersResource.jsonToMember(postData4);
+			member4 = membersResource.jsonToMember(postData4, member4);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member5= membersResource.jsonToMember(postData5);
+			member5= membersResource.jsonToMember(postData5, member5);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member6= membersResource.jsonToMember(postData6);
+			member6= membersResource.jsonToMember(postData6, member6);
 		} catch (IOException e) {
 			error = e;
 		}
@@ -961,32 +961,32 @@ public class LoadBalancerTest extends FloodlightTestCase {
 
 
 		try {
-			member1 = membersResource.jsonToMember(postData1);
+			member1 = membersResource.jsonToMember(postData1, member1);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member2 = membersResource.jsonToMember(postData2);
+			member2 = membersResource.jsonToMember(postData2, member2);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member3 = membersResource.jsonToMember(postData3);
+			member3 = membersResource.jsonToMember(postData3, member3);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member4 = membersResource.jsonToMember(postData4);
+			member4 = membersResource.jsonToMember(postData4, member4);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member5= membersResource.jsonToMember(postData5);
+			member5= membersResource.jsonToMember(postData5, member5);
 		} catch (IOException e) {
 			error = e;
 		}
 		try {
-			member6= membersResource.jsonToMember(postData6);
+			member6= membersResource.jsonToMember(postData6, member6);
 		} catch (IOException e) {
 			error = e;
 		}
