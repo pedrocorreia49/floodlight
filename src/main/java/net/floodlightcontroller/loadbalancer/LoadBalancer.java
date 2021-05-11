@@ -1343,7 +1343,17 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		log.error("Monitor does not exist!");
 		return null;
 	}
-
+	@Override
+	public String enablePoolMonitor(String monitorid){
+		if(monitors.get(monitorid)!=null){
+			poolTCPHealthMonitor healthMonitor = new poolTCPHealthMonitor(monitors.get(monitorid).poolId);
+			monitorsThreads.put(monitors.get(monitorid).id,threadService.getScheduledExecutor().scheduleAtFixedRate(healthMonitor,healthMonitorsInterval,
+					healthMonitorsInterval, TimeUnit.SECONDS));
+			return "Enabled";
+		}else{
+			return "Monitor doesn't exist!";
+		}
+	}
 	@Override
 	public Collection<LBMonitor> associateMonitorWithPool(String poolId, LBMonitor monitor) {
 		Collection<LBMonitor> result = new HashSet<>();
