@@ -41,7 +41,7 @@ public class LBMember {
     protected String memberId;
     protected String vipId;
     protected short weight;
-    protected short throughput;
+    protected double throughput;
     
     public LBMember() {
         id = String.valueOf((int) (Math.random()*10000));
