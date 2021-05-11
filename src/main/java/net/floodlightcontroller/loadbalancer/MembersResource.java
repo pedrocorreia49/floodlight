@@ -171,7 +171,11 @@ public class MembersResource extends ServerResource {
 									if (n.equals("pool_id")) {
 										member.poolId = jp.getText();
 										continue;
-									}
+									} else
+										if (n.equals("throughput")) {
+											member.throughput = Double.parseDouble(jp.getText());
+											continue;
+										}
 			if(n.equals("weight")){
 				member.weight = Short.parseShort(jp.getText());
 				continue;
