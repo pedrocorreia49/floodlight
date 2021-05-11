@@ -83,7 +83,7 @@ public class MembersResource extends ServerResource {
 	@Post
 	public LBMember createMember(String postData) {        
 
-		LBMember member=null;
+		LBMember member= new LBMember();
 		try {
 			member=jsonToMember(postData,member);
 		} catch (IOException e) {
