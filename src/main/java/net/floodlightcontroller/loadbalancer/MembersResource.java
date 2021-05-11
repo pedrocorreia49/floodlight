@@ -18,6 +18,7 @@ package net.floodlightcontroller.loadbalancer;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Iterator;
 
 import net.floodlightcontroller.packet.IPv4;
 
@@ -54,12 +55,37 @@ public class MembersResource extends ServerResource {
 	}
 
 	@Put
+	public LBMember updateMember(String postData){
+		String memberId = (String) getRequestAttributes().get("member");
+		if(memberId!=null){
+			ILoadBalancerService lbs =
+				(ILoadBalancerService)getContext().getAttributes().
+				get(ILoadBalancerService.class.getCanonicalName());
+				
+			if(!lbs.listMember(memberId).isEmpty()){
+				Iterator<LBMember> it = lbs.listMember(memberId).iterator();  
+				LBMember lb = it.next();
+				try {
+					lb = jsonToMember(postData, lb);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					return null;
+				}
+				lbs.updateMember(lb);
+				return lb;
+			}else{
+				return null;
+			}
+		}
+		return null;
+	}
 	@Post
 	public LBMember createMember(String postData) {        
 
 		LBMember member=null;
 		try {
-			member=jsonToMember(postData);
+			member=jsonToMember(postData,member);
 		} catch (IOException e) {
 			log.error("Could not parse JSON {}", e.getMessage());
 			throw new ResourceException(BAD_REQUEST); // Sends HTTP error message with code 400 (Bad Request).
@@ -93,10 +119,10 @@ public class MembersResource extends ServerResource {
 		}
 	}
 
-	protected LBMember jsonToMember(String json) throws IOException {
+	protected LBMember jsonToMember(String json,LBMember member) throws IOException {
 		MappingJsonFactory f = new MappingJsonFactory();
 		JsonParser jp;
-		LBMember member = new LBMember();
+		
 
 		try {
 			jp = f.createParser(json);
