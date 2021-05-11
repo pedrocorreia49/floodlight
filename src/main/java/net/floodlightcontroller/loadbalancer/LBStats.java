@@ -28,12 +28,16 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 @JsonSerialize(using=LBStatsSerializer.class)
 public class LBStats {
     protected long bytesIn;
+	protected long bytesInDiff;
+	protected long bytesOutDiff;
     protected long bytesOut;
 	protected int activeFlows;
     protected int totalFlows;
     
     public LBStats() {
         bytesIn = 0;
+		bytesInDiff=0;
+		bytesOutDiff=0;
         bytesOut = 0;
         activeFlows = 0;
         totalFlows = 0;

@@ -18,6 +18,8 @@ package net.floodlightcontroller.loadbalancer;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+import java.util.ArrayList;
+
 /**
  * Data structure for Load Balancer based on
  * Quantum proposal http://wiki.openstack.org/LBaaS/CoreResourceModel/proposal 
@@ -31,26 +33,48 @@ public class LBMember {
     protected int address;
     protected short port;
     protected String macString;
-    
+    protected LBStats memberStats;
     protected int connectionLimit;
     protected short adminState;
     protected short status;
-
     protected String poolId;
+    protected String memberId;
     protected String vipId;
     protected short weight;
     
     public LBMember() {
         id = String.valueOf((int) (Math.random()*10000));
-        address = 0;
+        address = -1;
         macString = null;
-        port = 0;
-        
-        connectionLimit = 0;
-        adminState = 0;
-        status = 0;
-        poolId = null;
+        port = -1;
+        memberStats =  new LBStats();
+        connectionLimit = -1;
+        adminState = -1;
+        status = -1;
+        poolId=null;
+        memberId = null;
         vipId = null;
-        weight = 1;
+        weight = -1;
     }
+
+    public void setMemberStatistics(ArrayList<Long> bytesIn, ArrayList<Long> bytesOut, int activeFlows) {
+		if (!bytesIn.isEmpty() && !bytesOut.isEmpty()) {
+			long sumIn = 0;
+			long sumOut = 0;
+
+			for (Long bytes : bytesIn) {
+				sumIn += bytes;
+			}
+            memberStats.bytesInDiff = sumIn - memberStats.bytesIn;
+			memberStats.bytesIn = sumIn;
+
+			for (Long bytes : bytesOut) {
+				sumOut += bytes;
+			}
+            memberStats.bytesOutDiff = sumOut-memberStats.bytesOut;
+			memberStats.bytesOut = sumOut;
+			memberStats.activeFlows = activeFlows;
+		}
+	}
+
 }

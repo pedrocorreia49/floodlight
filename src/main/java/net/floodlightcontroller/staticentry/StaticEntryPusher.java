@@ -44,6 +44,8 @@ import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.util.AppCookie;
+import net.floodlightcontroller.loadbalancer.ILoadBalancerService;
+import net.floodlightcontroller.loadbalancer.LoadBalancer;
 import net.floodlightcontroller.restserver.IRestApiService;
 import net.floodlightcontroller.staticentry.web.StaticEntryWebRoutable;
 import net.floodlightcontroller.staticentry.web.StaticFlowEntryWebRoutable;
@@ -69,6 +71,7 @@ import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFType;
 import org.projectfloodlight.openflow.protocol.OFVersion;
+import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.match.MatchFields;
 import org.projectfloodlight.openflow.types.DatapathId;
 import org.projectfloodlight.openflow.types.TableId;
@@ -76,7 +79,7 @@ import org.projectfloodlight.openflow.types.U32;
 import org.projectfloodlight.openflow.types.U64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import net.floodlightcontroller.util.Pair;
 import com.google.common.collect.ImmutableSet;
 
 /**
@@ -134,6 +137,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 	protected IOFSwitchService switchService;
 	protected IStorageSourceService storageSourceService;
 	protected IRestApiService restApiService;
+	protected ILoadBalancerService loadBalancerService;
 
 	private IHAListener haListener;
 
@@ -681,7 +685,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 	 */
 	public Command handleFlowRemoved(IOFSwitch sw, OFFlowRemoved msg, FloodlightContext cntx) {
 		U64 cookie = msg.getCookie();
-
+		
 		if (AppCookie.extractApp(cookie) == STATIC_ENTRY_APP_ID) {
 			OFFlowRemovedReason reason = null;
 			reason = msg.getReason();
@@ -700,20 +704,16 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 				 * flow based on this message, but we can get the table values for this switch and search.
 				 */
 				String flowToRemove = null;
+				DatapathId did = sw.getId();
 				Map<String, OFMessage> flowsByName = getEntries(sw.getId())
 						.entrySet()
 						.stream()
 						.filter(e -> e.getValue() instanceof OFFlowMod)
 						.collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
 				
-				for(String s: flowsByName.keySet()){
-					log.info("STATIC PUSHER {}",s);
-				}
 
 				for (Map.Entry<String, OFMessage> e : flowsByName.entrySet()) {
 					OFFlowMod f = (OFFlowMod) e.getValue();
-					// flowToRemove = e.getKey();
-
 
 					if (msg.getCookie().equals(f.getCookie()) &&
 							(msg.getVersion().compareTo(OFVersion.OF_12) < 0 ? true : msg.getHardTimeout() == f.getHardTimeout()) &&
@@ -723,6 +723,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 							(msg.getVersion().compareTo(OFVersion.OF_10) == 0 ? true : msg.getTableId().equals(f.getTableId()))
 							) {
 						flowToRemove = e.getKey();
+						loadBalancerService.deleteFlow(msg.getMatch(),did);
 						log.info("Flow removed "+flowToRemove);
 						break;
 					}
@@ -843,6 +844,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		storageSourceService = context.getServiceImpl(IStorageSourceService.class);
 		restApiService = context.getServiceImpl(IRestApiService.class);
+		loadBalancerService=context.getServiceImpl(LoadBalancer.class);
 		haListener = new HAListenerDelegate();
 	} 
 

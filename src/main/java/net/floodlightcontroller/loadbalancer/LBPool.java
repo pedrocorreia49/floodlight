@@ -77,17 +77,16 @@ public class LBPool {
 	protected final static short STATISTICS = 2;
 	protected final static short WEIGHTED_RR = 3;
 	protected final static short SPL = 4;
+	protected final static short LLM = 5;
+	protected final static short LTP = 6;
 	protected int timeout = FlowModUtils.INFINITE_TIMEOUT;
 	protected String vipId;
-
 	protected int previousMemberIndex;
-
 	protected LBStats poolStats;
 	protected ITopologyService its;
 
 	public LBPool() {
 		id = String.valueOf((int) (Math.random() * 10000));
-
 		name = null;
 		tenantId = null;
 		netId = null;
@@ -121,6 +120,10 @@ public class LBPool {
 			return "Weighted Round-Robin";
 		} else if (lbMethod == 4) {
 			return "SLP";
+		}else if(lbMethod==5){
+			return "LLM";
+		}else if(lbMethod==6){
+			return "LTP";
 		}
 		return "Invalid Method";
 	}
@@ -143,6 +146,30 @@ public class LBPool {
 		}
 	}
 
+
+	public String pickLLMember(HashMap<String,LBMember> members){
+		long leastLoaded = 0;
+		String picked = null;
+		for(String memberId: this.members){
+			if(members.get(memberId)!=null){
+				log.info("MEMBER {} with {} bytes!",memberId,members.get(memberId).memberStats.bytesInDiff);
+				if(picked == null){
+					picked = memberId;
+					leastLoaded = members.get(memberId).memberStats.bytesInDiff;
+				}else if(leastLoaded > members.get(memberId).memberStats.bytesInDiff){
+					picked = memberId;
+					leastLoaded = members.get(memberId).memberStats.bytesInDiff;
+				}else if(leastLoaded == members.get(memberId).memberStats.bytesInDiff){
+					if(members.get(picked).memberStats.activeFlows > members.get(memberId).memberStats.getActiveFlows()){
+						picked = memberId;
+					}
+				}
+			}
+		}
+		log.info("MEMBER {} PICKED ON LLM METHOD WITH {} BYTES IN",picked,leastLoaded);
+		return picked;
+
+	}
 	public Pair<String,ArrayList<Path>> pickMember(IDeviceService ids, ITopologyService its, IPClient client,
 			HashMap<String, LBMember> totalMembers, IOFSwitch sw, OFPacketIn pi, IRoutingService routingEngineService,
 			HashMap<String, Short> memberStatus) {

@@ -16,10 +16,7 @@
 
 package net.floodlightcontroller.loadbalancer;
 
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.Socket;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,11 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
-import net.floodlightcontroller.linkdiscovery.Link;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
@@ -55,7 +51,6 @@ import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.TransportPort;
 import org.projectfloodlight.openflow.types.U16;
 import org.projectfloodlight.openflow.types.U64;
-import org.python.antlr.PythonParser.else_clause_return;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +70,6 @@ import net.floodlightcontroller.debugcounter.IDebugCounterService.MetaData;
 import net.floodlightcontroller.devicemanager.IDevice;
 import net.floodlightcontroller.devicemanager.IDeviceService;
 import net.floodlightcontroller.devicemanager.SwitchPort;
-import net.floodlightcontroller.linkdiscovery.internal.LinkDiscoveryManager;
 import net.floodlightcontroller.packet.ARP;
 import net.floodlightcontroller.packet.Data;
 import net.floodlightcontroller.packet.Ethernet;
@@ -135,13 +129,15 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	protected HashMap<String, LBVip> vips;
 	protected HashMap<String, LBPool> pools;
 	protected HashMap<String, LBMember> members;
-	protected HashMap<String, LBMonitor> monitors;
+	protected HashMap<String,LBMonitor> monitors;
+	protected HashMap<String,ScheduledFuture<?>> monitorsThreads;
 	protected HashMap<Integer, String> vipIpToId;
 	protected HashMap<IPv4Address, MacAddress> vipIpToMac;
 	protected HashMap<String, Short> memberStatus;
 	protected HashMap<String, Integer> memberIdToIp;
 	protected HashMap<IPClient, LBMember> clientToMember;
-	protected HashMap<Pair<Match, DatapathId>, String> flowToVipId;
+	protected ConcurrentHashMap<Pair<Match, DatapathId>, String> flowToVipId;
+	protected ConcurrentHashMap<Pair<Match,DatapathId>,String> flowToMemberId;
 	protected HashMap<Integer,Connection> clientsPaths;
 	protected HashMap<String, SwitchPort> memberIdToSwitchPort;
 	protected HashMap<Integer, TripleHandShake> monitoringConnections;
@@ -394,13 +390,15 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 									(pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
 											: pi.getMatch().get(MatchField.IN_PORT),
 									OFPort.TABLE, cntx, true);
-
+							
 						}
 
 
 
 						return Command.STOP;
-					} else {
+					}else if(pool.lbMethod==LBPool.LLM&&statisticsService!=null){
+							member = members.get(pool.pickLLMember(members));
+					}else {
 						member = members.get(pool.pickMember(client, memberPortBandwidth, memberWeights, memberStatus));
 					}
 
@@ -783,6 +781,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 				sfpService.addFlow(entryName, fmb.build(), sw);
 				Pair<Match, DatapathId> pair = new Pair<>(mb.build(), sw);
 				flowToVipId.put(pair, member.vipId); // used to set LBPool statistics
+				flowToMemberId.put(pair,member.id);
 			}
 		}
 
@@ -851,6 +850,8 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 			}
 		}
 	}
+
+
 
 	/**
 	 * Send ICMP requests to the switches connected to the members. Response will
@@ -957,6 +958,45 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		}
 	}
 
+
+
+	private class SetMemberStats implements Runnable {
+		@Override
+		public void run() {
+			if (!members.isEmpty()) {
+				if (!flowToMemberId.isEmpty()) {
+					for (LBMember member : members.values()) {
+						int flowCounter=0;
+						FlowRuleStats frs = null;
+						ArrayList<Long> bytesOut = new ArrayList<>();
+						ArrayList<Long> bytesIn = new ArrayList<>();
+						for (Pair<Match, DatapathId> pair : flowToMemberId.keySet()) { // from the flows set from the
+																					// load
+																					// balancer
+							if (flowToMemberId.get(pair).equals(member.id)) { // determine which member is responsible
+																			// for
+																			// the flow
+								flowCounter++;
+								frs = statisticsService.getFlowStats().get(pair); // get the statistics of this flow
+								if (frs != null) {
+									Set<DatapathId> membersDPID = new HashSet<>();
+									for (SwitchPort sp : memberIdToSwitchPort.values()) {
+										membersDPID.add(sp.getNodeId());
+									}
+									if (membersDPID.contains(pair.getValue())) { // if switch is connected to a											// member
+										bytesIn.add(frs.getByteCount().getValue());
+									} else
+										bytesOut.add(frs.getByteCount().getValue());
+								}
+							}
+						}
+						member.setMemberStatistics(bytesIn, bytesOut, flowCounter);
+					}
+				}
+			}
+		}
+	}
+
 	/**
 	 * used to collect SwitchPortBandwidth of the members and map members to DPIDs
 	 * and helper function health monitors and pool stats. LBPool pool is used to
@@ -1000,7 +1040,49 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		}
 		return memberPortBandwidth;
 	}
+	public class poolTCPHealthMonitor implements Runnable {
+		String poolId;
 
+		public poolTCPHealthMonitor(String poolId) {
+			this.poolId = poolId;
+		}
+
+		@Override
+		public void run() {
+			Map<NodePortTuple, PortDesc> portDesc = new HashMap<>();
+			if (statisticsService != null) {
+				statisticsService.collectStatistics(true);
+				portDesc = statisticsService.getPortDesc();
+				LBPool pool = pools.get(poolId);
+
+				collectSwitchPortBandwidth(pool);
+				if (pool.vipId != null && vips.containsKey(pool.vipId) && !memberIdToSwitchPort.isEmpty()) {
+					for (NodePortTuple allNpts : portDesc.keySet()) {
+						for (String memberId : pool.members) {
+							SwitchPort sp = memberIdToSwitchPort.get(memberId);
+							if (sp != null) {
+								NodePortTuple memberNpt = new NodePortTuple(sp.getNodeId(), sp.getPortId());
+								if (portDesc.get(allNpts).isUp()) {
+									if (memberNpt.equals(allNpts)) {
+										members.get(memberId).status = 0;
+										if (pool.protocol == IpProtocol.TCP.getIpProtocolNumber()) {
+											log.info("TCP MONITORING ON MEMBER {}", memberId);
+											vipMembersHealthCheckTCP(memberNpt,
+													members.get(memberId).macString,
+													IPv4Address.of(members.get(memberId).address),
+													(byte) 6, pool.vipId, memberId);
+
+
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	/*
 	 * ILoadBalancerService methods
 	 */
@@ -1265,7 +1347,6 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	@Override
 	public Collection<LBMonitor> associateMonitorWithPool(String poolId, LBMonitor monitor) {
 		Collection<LBMonitor> result = new HashSet<>();
-
 		// If monitor does not exist, it is created.
 		if (monitor == null) {
 			monitor = new LBMonitor();
@@ -1293,11 +1374,16 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 					result.add(monitors.get(monitorId));
 				}
 			}
+
 			if (monitorsInWrongPool != null) {
 				for (String monitorId : monitorsInWrongPool) {
 					pools.get(poolId).monitors.remove(monitorId);
 				}
 			}
+			poolTCPHealthMonitor healthMonitor = new poolTCPHealthMonitor(monitor.poolId);
+			monitorsThreads.put(monitor.id,threadService.getScheduledExecutor().scheduleAtFixedRate(healthMonitor,healthMonitorsInterval,
+					healthMonitorsInterval, TimeUnit.SECONDS));
+
 			return result;
 		}
 		return result;
@@ -1310,10 +1396,13 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 		pool = pools.get(poolId);
 		monitor = monitors.get(monitorId);
-
+		
 		if (pool != null && monitor != null && pool.monitors.contains(monitorId)) {
 			pool.monitors.remove(monitorId);
 			monitor.poolId = null;
+			if(monitorsThreads.get(monitorId).cancel(true)){
+				log.info("Monitor thread cancelled");
+			}
 			return 0;
 		} else {
 			return -1;
@@ -1329,6 +1418,9 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 			if (monitor.poolId != null && pools.containsKey(monitor.poolId))
 				pools.get(monitor.poolId).monitors.remove(monitorId);
 			monitors.remove(monitorId);
+			if(monitorsThreads.get(monitorId).cancel(true)){
+				log.info("Monitor thread cancelled");
+			}
 			return 0;
 		} else {
 			return -1;
@@ -1375,6 +1467,12 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		pools.clear();
 		vips.clear();
 		return "{\"status\" : \"All Vips, Pools, Members and Monitors have been deleted \"}";
+	}
+	@Override
+	public void deleteFlow(Match m, DatapathId dpid){
+		Pair<Match, DatapathId> pair = new Pair<>(m, dpid);
+		flowToMemberId.remove(pair);
+		flowToVipId.remove(pair);
 	}
 
 	/*
@@ -1432,14 +1530,19 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		memberStatus = new HashMap<>();
 		vipIpToMac = new HashMap<>();
 		memberIdToIp = new HashMap<>();
-		flowToVipId = new HashMap<>();
+		flowToVipId = new ConcurrentHashMap<>();
+		flowToMemberId=new ConcurrentHashMap<>();
 		memberIdToSwitchPort = new HashMap<>();
 		monitoringConnections = new HashMap<>();
 		clientsPaths = new HashMap<>();
+		monitorsThreads = new HashMap<>();
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetPoolStats(), flowStatsInterval,
+				flowStatsInterval, TimeUnit.SECONDS);
+		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetMemberStats(), flowStatsInterval,
 				flowStatsInterval, TimeUnit.SECONDS);
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 15,
 				15, TimeUnit.SECONDS);
+
 	}
 
 	@Override

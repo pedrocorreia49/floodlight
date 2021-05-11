@@ -145,6 +145,10 @@ public class PoolsResource extends ServerResource {
 					pool.lbMethod = (short) 3;
 				}else if(method.equalsIgnoreCase("SLP")){
 					pool.lbMethod = (short)4;
+				}else if(method.equalsIgnoreCase("LLM")){
+					pool.lbMethod =(short) 5;
+				}else if(method.equalsIgnoreCase("LTP")){
+					pool.lbMethod = (short) 6;
 				}
 
 				continue;
