@@ -14,15 +14,14 @@ def getThroughput(pool_id, id, ip):
     else:
         output = json.loads(stdout)
         if(len(output['end']) == 0):
-            print(pool_id, ip, 'OFF')
+            # print(pool_id, ip, 'OFF')
             obj = {"id": id, "pool_id": pool_id, "throughput": '-1'}
             r = requests.put('http://'+controller_ip_port+'/quantum/v1.0/members/'+id+'/', json = obj)
         else:
-            # print(id, ip, output['end']['streams']) # Que campos enviar?
             for i in output['end']['streams']:
                 obj = {"id": id, "pool_id": pool_id, "throughput": i['sender']['bits_per_second']}
                 r = requests.put('http://'+controller_ip_port+'/quantum/v1.0/members/'+id+'/', json = obj)
-                print('http://'+controller_ip_port+'/quantum/v1.0/members/'+id+'/', obj)
+                # print('http://'+controller_ip_port+'/quantum/v1.0/members/'+id+'/', obj)
     
     return
 
@@ -61,5 +60,5 @@ if __name__ == "__main__":
         for thread in threadsP:
             thread.join()
 
-        print('--------------')
+        print('Tests done, waiting...\n')
         time.sleep(20)
