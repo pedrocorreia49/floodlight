@@ -50,6 +50,7 @@ public class LBMemberSerializer extends JsonSerializer<LBMember>{
         }
         jGen.writeStringField("flows",String.valueOf(member.memberStats.totalFlows));
         jGen.writeStringField("bytesIn", String.valueOf(member.memberStats.bytesIn));
+        jGen.writeStringField("throughput", Double.toString(member.throughput));
         jGen.writeEndObject();
     }
 
