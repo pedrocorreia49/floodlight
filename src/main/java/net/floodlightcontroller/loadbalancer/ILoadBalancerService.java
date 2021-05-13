@@ -18,6 +18,9 @@ package net.floodlightcontroller.loadbalancer;
 
 import java.util.Collection;
 
+import org.projectfloodlight.openflow.protocol.match.Match;
+import org.projectfloodlight.openflow.types.DatapathId;
+
 import net.floodlightcontroller.core.module.IFloodlightService;
 
 public interface ILoadBalancerService extends IFloodlightService {
@@ -226,5 +229,8 @@ public interface ILoadBalancerService extends IFloodlightService {
      * return Success or Failure message
      */
     public String clearAllLb();
+
+    public String enablePoolMonitor(String monitorid);
     
+    public void deleteFlow(Match m, DatapathId dpid);
 }
