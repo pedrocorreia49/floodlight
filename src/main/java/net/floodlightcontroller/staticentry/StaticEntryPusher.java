@@ -45,7 +45,6 @@ import net.floodlightcontroller.core.module.IFloodlightModule;
 import net.floodlightcontroller.core.module.IFloodlightService;
 import net.floodlightcontroller.core.util.AppCookie;
 import net.floodlightcontroller.loadbalancer.ILoadBalancerService;
-import net.floodlightcontroller.loadbalancer.LoadBalancer;
 import net.floodlightcontroller.restserver.IRestApiService;
 import net.floodlightcontroller.staticentry.web.StaticEntryWebRoutable;
 import net.floodlightcontroller.staticentry.web.StaticFlowEntryWebRoutable;
@@ -79,6 +78,8 @@ import org.projectfloodlight.openflow.types.U32;
 import org.projectfloodlight.openflow.types.U64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.netty.util.internal.SocketUtils;
 import net.floodlightcontroller.util.Pair;
 import com.google.common.collect.ImmutableSet;
 
@@ -723,6 +724,11 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 							(msg.getVersion().compareTo(OFVersion.OF_10) == 0 ? true : msg.getTableId().equals(f.getTableId()))
 							) {
 						flowToRemove = e.getKey();
+						if(msg.getMatch()==null){
+							log.info("MSG IS NULLL");
+						}else if (did==null){
+							log.info("DID NULL");
+						}
 						loadBalancerService.deleteFlow(msg.getMatch(),did);
 						log.info("Flow removed "+flowToRemove);
 						break;
@@ -800,6 +806,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 		l.add(IOFSwitchService.class);
 		l.add(IStorageSourceService.class);
 		l.add(IRestApiService.class);
+		l.add(ILoadBalancerService.class);
 		return l;
 	}
 
@@ -844,7 +851,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 		switchService = context.getServiceImpl(IOFSwitchService.class);
 		storageSourceService = context.getServiceImpl(IStorageSourceService.class);
 		restApiService = context.getServiceImpl(IRestApiService.class);
-		loadBalancerService=context.getServiceImpl(LoadBalancer.class);
+		loadBalancerService=context.getServiceImpl(ILoadBalancerService.class);
 		haListener = new HAListenerDelegate();
 	} 
 

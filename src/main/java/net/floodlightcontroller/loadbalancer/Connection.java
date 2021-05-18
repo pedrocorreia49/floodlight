@@ -5,10 +5,10 @@ import net.floodlightcontroller.routing.Path;
 import java.util.ArrayList;
 
 public class Connection {
-    String memberId;
-    Path routeIn;
-    Path routeOut;
-    long lastConnected; //timestamp of the last time certain client was connected
+    protected String memberId;
+    protected Path routeIn;
+    protected Path routeOut;
+    protected long lastConnected; //timestamp of the last time certain client was connected
 
     public Connection(String memberId, Path routeIn, Path routeOut, long lastConnected) {
         this.memberId = memberId;
@@ -16,6 +16,7 @@ public class Connection {
         this.routeOut = routeOut;
         this.lastConnected = lastConnected;
     }
+    public Connection(){}
 
     public String getMemberId() {
         return memberId;
