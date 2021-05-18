@@ -1,0 +1,4 @@
+
+[submodule "src/main/resources/web"]
+	path = src/main/resources/web
+	url = https://github.com/pedrocorreia49/floodlight-webui

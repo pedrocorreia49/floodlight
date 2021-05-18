@@ -3,6 +3,7 @@ import threading
 import time
 import json
 import requests
+import sys
 
 controller_ip_port = '192.168.56.1:8080'
 
@@ -47,18 +48,23 @@ if __name__ == "__main__":
     threadsP = list()
 
     while True:
+        hasLTPPool = False
         threadsP.clear()
         r = requests.get('http://' + controller_ip_port + '/quantum/v1.0/pools/')
         pools = json.loads(r.text)
         for pool in pools:
             pool_id = pool['id']
             if(pool['lbMethod'] == 'LTP'):
+                hasLTPPool = True
                 x = threading.Thread(target=handlePool, args=(pool_id, ))
                 threadsP.append(x)
                 x.start()
 
         for thread in threadsP:
             thread.join()
+
+        if(hasLTPPool == False):
+            sys.exit()
 
         print('Tests done, waiting...\n')
         time.sleep(20)
