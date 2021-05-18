@@ -59,6 +59,7 @@ import net.floodlightcontroller.core.IFloodlightProviderService;
 import net.floodlightcontroller.core.IOFMessageListener;
 import net.floodlightcontroller.core.IOFSwitch;
 import net.floodlightcontroller.core.internal.IOFSwitchService;
+import net.floodlightcontroller.core.internal.OFSwitch;
 import net.floodlightcontroller.core.module.FloodlightModuleContext;
 import net.floodlightcontroller.core.module.FloodlightModuleException;
 import net.floodlightcontroller.core.module.IFloodlightModule;
@@ -129,16 +130,16 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	protected HashMap<String, LBVip> vips;
 	protected HashMap<String, LBPool> pools;
 	protected HashMap<String, LBMember> members;
-	protected HashMap<String,LBMonitor> monitors;
-	protected HashMap<String,ScheduledFuture<?>> monitorsThreads;
+	protected HashMap<String, LBMonitor> monitors;
+	protected HashMap<String, ScheduledFuture<?>> monitorsThreads;
 	protected HashMap<Integer, String> vipIpToId;
 	protected HashMap<IPv4Address, MacAddress> vipIpToMac;
 	protected HashMap<String, Short> memberStatus;
 	protected HashMap<String, Integer> memberIdToIp;
 	protected HashMap<IPClient, LBMember> clientToMember;
 	protected ConcurrentHashMap<Pair<Match, DatapathId>, String> flowToVipId;
-	protected ConcurrentHashMap<Pair<Match,DatapathId>,String> flowToMemberId;
-	protected HashMap<Integer,Connection> clientsPaths;
+	protected ConcurrentHashMap<Pair<Match, DatapathId>, String> flowToMemberId;
+	protected HashMap<Integer, Connection> clientsPaths;
 	protected HashMap<String, SwitchPort> memberIdToSwitchPort;
 	protected HashMap<Integer, TripleHandShake> monitoringConnections;
 	private static ScheduledFuture<?> healthMonitoring;
@@ -166,9 +167,14 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	protected static int LB_PRIORITY = 32768;
 
 	// Comparator for sorting by SwitchCluster
-	public Comparator<SwitchPort> clusterIdComparator=new Comparator<SwitchPort>(){@Override public int compare(SwitchPort d1,SwitchPort d2){DatapathId d1ClusterId=topologyService.getClusterId(d1.getNodeId());DatapathId d2ClusterId=topologyService.getClusterId(d2.getNodeId());return d1ClusterId.compareTo(d2ClusterId);}};
-
-
+	public Comparator<SwitchPort> clusterIdComparator = new Comparator<SwitchPort>() {
+		@Override
+		public int compare(SwitchPort d1, SwitchPort d2) {
+			DatapathId d1ClusterId = topologyService.getClusterId(d1.getNodeId());
+			DatapathId d2ClusterId = topologyService.getClusterId(d2.getNodeId());
+			return d1ClusterId.compareTo(d2ClusterId);
+		}
+	};
 
 	@Override
 	public String getName() {
@@ -190,47 +196,56 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	public net.floodlightcontroller.core.IListener.Command receive(IOFSwitch sw, OFMessage msg,
 			FloodlightContext cntx) {
 		switch (msg.getType()) {
-		case PACKET_IN:
-			return processPacketIn(sw, (OFPacketIn) msg, cntx);
-		default:
-			break;
+			case PACKET_IN:
+				return processPacketIn(sw, (OFPacketIn) msg, cntx);
+			default:
+				break;
 		}
 		log.warn("Received unexpected message {}", msg);
 		return Command.CONTINUE;
 	}
 
-	public net.floodlightcontroller.core.IListener.Command tcpHealthCheck(Ethernet eth, IPClient client,TripleHandShake connection, 
-	IOFSwitch sw, OFPacketIn pi, int flags) {
-				if(connection.getState()==18 && flags == 18){
-					IPacket tcpFinAck = new Ethernet().setSourceMACAddress(eth.getDestinationMACAddress())
-						.setDestinationMACAddress(eth.getSourceMACAddress()).setEtherType(EthType.IPv4)
-						.setVlanID((short) 0).setPriorityCode((byte) 0)
-						.setPayload(new IPv4().setSourceAddress(IPv4Address.of(connection.memberIp))
-								.setDestinationAddress(client.ipAddress).setProtocol(IpProtocol.TCP).setTtl((byte) 64)
-								.setPayload(new TCP().setFlags((short) 17).setDestinationPort(80).setSourcePort(5000)
-										.setPayload(new Data()
-												.setData(new String("mock").getBytes(StandardCharsets.UTF_8)))));
+	public net.floodlightcontroller.core.IListener.Command tcpHealthCheck(Ethernet eth, IPClient client,
+			TripleHandShake connection, IOFSwitch sw, OFPacketIn pi, int flags) {
+		if (connection.getState() == 18 && flags == 18) {
+			IPacket tcpFinAck = new Ethernet().setSourceMACAddress(eth.getDestinationMACAddress())
+					.setDestinationMACAddress(eth.getSourceMACAddress()).setEtherType(EthType.IPv4).setVlanID((short) 0)
+					.setPriorityCode((byte) 0)
+					.setPayload(new IPv4().setSourceAddress(IPv4Address.of(connection.memberIp))
+							.setDestinationAddress(client.ipAddress).setProtocol(IpProtocol.TCP).setTtl((byte) 64)
+							.setPayload(new TCP().setFlags((short) 17).setDestinationPort(80).setSourcePort(5000)
+									.setPayload(
+											new Data().setData(new String("mock").getBytes(StandardCharsets.UTF_8)))));
 
-				FloodlightContext cntx = null;
-				monitoringConnections.get(client.ipAddress.getInt()).setState((short)20);
-				memberStatus.put(connection.getMemberId(),(short)1);
-				pushPacket(tcpFinAck, sw, OFBufferId.NO_BUFFER, OFPort.CONTROLLER,
-						(pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
-								: pi.getMatch().get(MatchField.IN_PORT),
-						cntx, true);
-				
-				}else if(connection.getState()==18&&flags==20){
-					memberStatus.put(connection.getMemberId(), (short)-1);
-					
-				
-				}
-				
-			return Command.STOP;
-			}
+			FloodlightContext cntx = null;
+			monitoringConnections.get(client.ipAddress.getInt()).setState((short) 20);
+			memberStatus.put(connection.getMemberId(), (short) 1);
+			pushPacket(tcpFinAck, sw, OFBufferId.NO_BUFFER, OFPort.CONTROLLER,
+					(pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
+							: pi.getMatch().get(MatchField.IN_PORT),
+					cntx, true);
 
-	
+		} else if (connection.getState() == 18 && flags == 20) {
+			memberStatus.put(connection.getMemberId(), (short) -1);
 
-	
+		}
+
+		return Command.STOP;
+	}
+
+	public void pushConnectionsRoutes(IPClient client, IPv4 packet, IOFSwitch sw, FloodlightContext cntx,
+			OFPacketIn pi) {
+
+		Path routeIn = clientsPaths.get(client.hashCode()).getRouteIn();
+		Path routeOut = clientsPaths.get(client.hashCode()).getRouteOut();
+		String memberId = clientsPaths.get(client.hashCode()).getMemberId();
+		clientsPaths.get(client.hashCode()).setLastConnected(System.currentTimeMillis());
+		pushStaticVipRoute(true, routeIn, client, members.get(memberId), sw, packet.getDestinationAddress());
+		pushStaticVipRoute(false, routeOut, client, members.get(memberId), sw, packet.getDestinationAddress());
+		pushPacket(packet, sw, pi.getBufferId(), (pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
+				: pi.getMatch().get(MatchField.IN_PORT), OFPort.TABLE, cntx, true);
+		clientsPaths.get(client.hashCode()).setLastConnected(System.currentTimeMillis());
+	}
 
 	private net.floodlightcontroller.core.IListener.Command processPacketIn(IOFSwitch sw, OFPacketIn pi,
 			FloodlightContext cntx) {
@@ -270,9 +285,10 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 						client.srcPort = tcp_pkt.getSourcePort();
 						client.targetPort = tcp_pkt.getDestinationPort();
 						log.info("TCP FLAGS {}", tcp_pkt.getFlags());
-						
-						if(monitoringConnections.get(client.ipAddress.getInt())!=null){
-							return tcpHealthCheck(eth, client, monitoringConnections.get(client.ipAddress.getInt()), sw, pi,tcp_pkt.getFlags());
+
+						if (monitoringConnections.get(client.ipAddress.getInt()) != null) {
+							return tcpHealthCheck(eth, client, monitoringConnections.get(client.ipAddress.getInt()), sw,
+									pi, tcp_pkt.getFlags());
 						}
 
 					}
@@ -348,12 +364,21 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 						if (pool == null)
 							return Command.CONTINUE;
 					}
+
 					HashMap<String, Short> memberWeights = new HashMap<>();
 					HashMap<String, U64> memberPortBandwidth = new HashMap<>();
-
+					Path routeIn = null;
+					Path routeOut = null;
+					String memberId = null;
+					if (clientsPaths.containsKey(client.hashCode())) {
+						log.info("Using Stored Paths for client " + client.ipAddress.toString());
+						pushConnectionsRoutes(client, ip_pkt, sw, cntx, pi);
+						counterPacketIn.increment();
+						return Command.STOP;
+					}
 					if (pool.lbMethod == LBPool.WEIGHTED_RR) {
-						for (String memberId : pool.members) {
-							memberWeights.put(memberId, members.get(memberId).weight);
+						for (String memberId1 : pool.members) {
+							memberWeights.put(memberId1, members.get(memberId1).weight);
 						}
 					}
 
@@ -364,41 +389,31 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 					}
 					LBMember member = null;
 					if (pool.lbMethod == LBPool.SPL && statisticsService != null) {
-						Path routeIn = null;
-						Path routeOut = null;
-						String memberId= null;
-						if(clientsPaths.containsKey(client.hashCode())){
-							log.info("Using Stored Paths for client "+client.ipAddress.toString());
-							routeIn = clientsPaths.get(client.hashCode()).getRouteIn();
-							routeOut = clientsPaths.get(client.hashCode()).getRouteOut();
-							memberId = clientsPaths.get(client.hashCode()).getMemberId();
-							clientsPaths.get(client.hashCode()).setLastConnected(System.currentTimeMillis());
-						}else{
-							Pair<String,ArrayList<Path>> routes= pool.pickMember(deviceManagerService, topologyService, client, members, sw, pi,
-									routingEngineService, memberStatus);
-							routeIn = routes.getValue().get(0);
-							routeOut= routes.getValue().get(1);
-							memberId = routes.getKey();
-							clientsPaths.put(client.hashCode(),new Connection(memberId,routeIn,routeOut,System.currentTimeMillis()));
-						}
+						Pair<String, ArrayList<Path>> routes = pool.pickMember(deviceManagerService, topologyService,
+								client, members, sw, pi, routingEngineService, memberStatus);
+						routeIn = routes.getValue().get(0);
+						routeOut = routes.getValue().get(1);
+						memberId = routes.getKey();
+						clientsPaths.put(client.hashCode(),
+								new Connection(memberId, routeIn, routeOut, System.currentTimeMillis()));
 
 						if (members.get(memberId) != null) {
 							log.info("SPL");
-							pushStaticVipRoute(true, routeIn, client, members.get(memberId), sw, ip_pkt.getDestinationAddress());
-							pushStaticVipRoute(false, routeOut, client, members.get(memberId), sw, ip_pkt.getDestinationAddress());
+							pushStaticVipRoute(true, routeIn, client, members.get(memberId), sw,
+									ip_pkt.getDestinationAddress());
+							pushStaticVipRoute(false, routeOut, client, members.get(memberId), sw,
+									ip_pkt.getDestinationAddress());
 							pushPacket(pkt, sw, pi.getBufferId(),
 									(pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
 											: pi.getMatch().get(MatchField.IN_PORT),
 									OFPort.TABLE, cntx, true);
-							
+							return Command.STOP;
 						}
 
-
-
-						return Command.STOP;
-					}else if(pool.lbMethod==LBPool.LLM&&statisticsService!=null){
-							member = members.get(pool.pickLLMember(members));
-					}else {
+						
+					} else if (pool.lbMethod == LBPool.LLM && statisticsService != null) {
+						member = members.get(pool.pickLLMember(members));
+					} else {
 						member = members.get(pool.pickMember(client, memberPortBandwidth, memberWeights, memberStatus));
 					}
 
@@ -532,7 +547,9 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		// Check if we have the location of the destination
 		IDevice srcDevice = null;
 		IDevice dstDevice = null;
-
+		Connection conn = new Connection();
+		conn.memberId = member.id;
+		conn.lastConnected = System.currentTimeMillis();
 		// retrieve all known devices
 		Collection<? extends IDevice> allDevices = deviceManagerService.getAllDevices();
 
@@ -633,12 +650,12 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 					if (!routeIn.getPath().isEmpty()) {
 						pushStaticVipRoute(true, routeIn, client, member, sw, ip_pkt.getDestinationAddress());
-
+						conn.setRouteIn(routeIn);
 					}
 
 					if (!routeOut.getPath().isEmpty()) {
 						pushStaticVipRoute(false, routeOut, client, member, sw, ip_pkt.getDestinationAddress());
-
+						conn.setRouteOut(routeOut);
 					}
 
 				}
@@ -650,6 +667,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 				iDstDaps++;
 			}
 		}
+		clientsPaths.put(client.hashCode(), conn);
 		return;
 	}
 
@@ -781,7 +799,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 				sfpService.addFlow(entryName, fmb.build(), sw);
 				Pair<Match, DatapathId> pair = new Pair<>(mb.build(), sw);
 				flowToVipId.put(pair, member.vipId); // used to set LBPool statistics
-				flowToMemberId.put(pair,member.id);
+				flowToMemberId.put(pair, member.id);
 			}
 		}
 
@@ -851,8 +869,6 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		}
 	}
 
-
-
 	/**
 	 * Send ICMP requests to the switches connected to the members. Response will
 	 * come as packet in, if they are available.
@@ -889,7 +905,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	}
 
 	private void vipMembersHealthCheckTCP(NodePortTuple npt, String destMac, IPv4Address destAddr, byte msgType,
-			String vipId,String memberId) {
+			String vipId, String memberId) {
 		IOFSwitch theSW = switchService.getSwitch(npt.getNodeId());
 		log.info("TCP HEALTH MONITOR");
 
@@ -900,23 +916,26 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 						.setPayload(new TCP().setFlags((short) 2).setDestinationPort(80).setSourcePort(5000)
 								.setPayload(new Data().setData(new String(vipId).getBytes(StandardCharsets.UTF_8)))));
 		FloodlightContext cntx = null;
-		monitoringConnections.put(destAddr.getInt(), new TripleHandShake(destAddr.getInt(),memberId,(short)18));		
+		monitoringConnections.put(destAddr.getInt(), new TripleHandShake(destAddr.getInt(), memberId, (short) 18));
 		pushPacket(tcpSyn, theSW, OFBufferId.NO_BUFFER, OFPort.CONTROLLER, npt.getPortId(), cntx, true);
 
 	}
+
 	private class deleteIdleConnections implements Runnable {
 
 		@Override
 		public void run() {
-			if(!clientsPaths.isEmpty()){
-				for(Integer clientHash: clientsPaths.keySet()){
-					if(System.currentTimeMillis()-clientsPaths.get(clientHash).getLastConnected()>=15*60*1000){
+			if (!clientsPaths.isEmpty()) {
+				for (Integer clientHash : clientsPaths.keySet()) {
+					if (System.currentTimeMillis() - clientsPaths.get(clientHash).getLastConnected() >= 15 * 60
+							* 1000) {
 						clientsPaths.remove(clientHash);
 					}
 				}
 			}
 		}
 	}
+
 	/**
 	 * Periodical function to set LBPool statistics Gets the statistics through
 	 * StatisticsCollector and sets it in LBPool
@@ -958,24 +977,22 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		}
 	}
 
-
-
 	private class SetMemberStats implements Runnable {
 		@Override
 		public void run() {
 			if (!members.isEmpty()) {
 				if (!flowToMemberId.isEmpty()) {
 					for (LBMember member : members.values()) {
-						int flowCounter=0;
+						int flowCounter = 0;
 						FlowRuleStats frs = null;
 						ArrayList<Long> bytesOut = new ArrayList<>();
 						ArrayList<Long> bytesIn = new ArrayList<>();
 						for (Pair<Match, DatapathId> pair : flowToMemberId.keySet()) { // from the flows set from the
-																					// load
-																					// balancer
+																						// load
+																						// balancer
 							if (flowToMemberId.get(pair).equals(member.id)) { // determine which member is responsible
-																			// for
-																			// the flow
+																				// for
+																				// the flow
 								flowCounter++;
 								frs = statisticsService.getFlowStats().get(pair); // get the statistics of this flow
 								if (frs != null) {
@@ -983,7 +1000,8 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 									for (SwitchPort sp : memberIdToSwitchPort.values()) {
 										membersDPID.add(sp.getNodeId());
 									}
-									if (membersDPID.contains(pair.getValue())) { // if switch is connected to a											// member
+									if (membersDPID.contains(pair.getValue())) { // if switch is connected to a //
+																					// member
 										bytesIn.add(frs.getByteCount().getValue());
 									} else
 										bytesOut.add(frs.getByteCount().getValue());
@@ -1040,6 +1058,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		}
 		return memberPortBandwidth;
 	}
+
 	public class poolTCPHealthMonitor implements Runnable {
 		String poolId;
 
@@ -1067,11 +1086,9 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 										members.get(memberId).status = 0;
 										if (pool.protocol == IpProtocol.TCP.getIpProtocolNumber()) {
 											log.info("TCP MONITORING ON MEMBER {}", memberId);
-											vipMembersHealthCheckTCP(memberNpt,
-													members.get(memberId).macString,
-													IPv4Address.of(members.get(memberId).address),
-													(byte) 6, pool.vipId, memberId);
-
+											vipMembersHealthCheckTCP(memberNpt, members.get(memberId).macString,
+													IPv4Address.of(members.get(memberId).address), (byte) 6, pool.vipId,
+													memberId);
 
 										}
 									}
@@ -1343,17 +1360,20 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		log.error("Monitor does not exist!");
 		return null;
 	}
+
 	@Override
-	public String enablePoolMonitor(String monitorid){
-		if(monitors.get(monitorid)!=null){
+	public String enableTCPPoolMonitor(String monitorid) {
+		if (monitors.get(monitorid) != null) {
 			poolTCPHealthMonitor healthMonitor = new poolTCPHealthMonitor(monitors.get(monitorid).poolId);
-			monitorsThreads.put(monitors.get(monitorid).id,threadService.getScheduledExecutor().scheduleAtFixedRate(healthMonitor,healthMonitorsInterval,
-					healthMonitorsInterval, TimeUnit.SECONDS));
+			monitorsThreads.put(monitors.get(monitorid).id, threadService.getScheduledExecutor().scheduleAtFixedRate(
+					healthMonitor, healthMonitorsInterval, healthMonitorsInterval, TimeUnit.SECONDS));
+			monitors.get(monitorid).status = 1;
 			return "Enabled";
-		}else{
+		} else {
 			return "Monitor doesn't exist!";
 		}
 	}
+
 	@Override
 	public Collection<LBMonitor> associateMonitorWithPool(String poolId, LBMonitor monitor) {
 		Collection<LBMonitor> result = new HashSet<>();
@@ -1390,9 +1410,10 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 					pools.get(poolId).monitors.remove(monitorId);
 				}
 			}
-			poolTCPHealthMonitor healthMonitor = new poolTCPHealthMonitor(monitor.poolId);
-			monitorsThreads.put(monitor.id,threadService.getScheduledExecutor().scheduleAtFixedRate(healthMonitor,healthMonitorsInterval,
-					healthMonitorsInterval, TimeUnit.SECONDS));
+			// poolTCPHealthMonitor healthMonitor = new
+			// poolTCPHealthMonitor(monitor.poolId);
+			// monitorsThreads.put(monitor.id,threadService.getScheduledExecutor().scheduleAtFixedRate(healthMonitor,healthMonitorsInterval,
+			// healthMonitorsInterval, TimeUnit.SECONDS));
 
 			return result;
 		}
@@ -1406,11 +1427,11 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 		pool = pools.get(poolId);
 		monitor = monitors.get(monitorId);
-		
+
 		if (pool != null && monitor != null && pool.monitors.contains(monitorId)) {
 			pool.monitors.remove(monitorId);
 			monitor.poolId = null;
-			if(monitorsThreads.get(monitorId).cancel(true)){
+			if (monitorsThreads.get(monitorId).cancel(true)) {
 				log.info("Monitor thread cancelled");
 			}
 			return 0;
@@ -1428,7 +1449,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 			if (monitor.poolId != null && pools.containsKey(monitor.poolId))
 				pools.get(monitor.poolId).monitors.remove(monitorId);
 			monitors.remove(monitorId);
-			if(monitorsThreads.get(monitorId).cancel(true)){
+			if (monitorsThreads.get(monitorId).cancel(true)) {
 				log.info("Monitor thread cancelled");
 			}
 			return 0;
@@ -1478,11 +1499,15 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		vips.clear();
 		return "{\"status\" : \"All Vips, Pools, Members and Monitors have been deleted \"}";
 	}
+
 	@Override
-	public void deleteFlow(Match m, DatapathId dpid){
+	public void deleteFlow(Match m, DatapathId dpid) {
 		Pair<Match, DatapathId> pair = new Pair<>(m, dpid);
-		flowToMemberId.remove(pair);
-		flowToVipId.remove(pair);
+		if(pair!=null){
+			flowToMemberId.remove(pair);
+			flowToVipId.remove(pair);
+		}
+		
 	}
 
 	/*
@@ -1541,7 +1566,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		vipIpToMac = new HashMap<>();
 		memberIdToIp = new HashMap<>();
 		flowToVipId = new ConcurrentHashMap<>();
-		flowToMemberId=new ConcurrentHashMap<>();
+		flowToMemberId = new ConcurrentHashMap<>();
 		memberIdToSwitchPort = new HashMap<>();
 		monitoringConnections = new HashMap<>();
 		clientsPaths = new HashMap<>();
@@ -1550,8 +1575,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 				flowStatsInterval, TimeUnit.SECONDS);
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetMemberStats(), flowStatsInterval,
 				flowStatsInterval, TimeUnit.SECONDS);
-		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 15,
-				15, TimeUnit.SECONDS);
+		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 15, 15, TimeUnit.SECONDS);
 
 	}
 
@@ -1564,5 +1588,20 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 				"Packet outs written by the LoadBalancer", MetaData.WARN);
 		counterPacketIn = debugCounterService.registerCounter(this.getName(), "packet-ins-received",
 				"Packet ins received by the LoadBalancer", MetaData.WARN);
+	}
+
+	@Override
+	public String disableTCPPoolMonitor(String monitorid) {
+		if (monitors.get(monitorid) != null && monitors.get(monitorid).status==1) {
+			if(monitorsThreads.get(monitorid).cancel(true)){
+				monitors.get(monitorid).status = -1;
+				return "Disabled";
+			}else{
+				return "Couldn't disable monitor";
+			}
+	
+		} else {
+			return "Monitor doesn't exist!";
+		}
 	}
 }

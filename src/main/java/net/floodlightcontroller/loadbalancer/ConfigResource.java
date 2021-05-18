@@ -35,9 +35,13 @@ public class ConfigResource extends ServerResource{
 		
 		if(getRequestAttributes().get("monitorId")!=null&&getReference().getPath().contains(LoadBalancerWebRoutable.ENABLE_STR)){
 			String monitorid=(String) getRequestAttributes().get("monitorId");
-			String status = lbs.enablePoolMonitor(monitorid);
+			String status = lbs.enableTCPPoolMonitor(monitorid);
 			return Collections.singletonMap("Pool Monitor "+monitorid, status);
-		}else 
+		}else if(getRequestAttributes().get("monitorId")!=null&&getReference().getPath().contains(LoadBalancerWebRoutable.DISABLE_STR)){
+			String monitorid=(String) getRequestAttributes().get("monitorId");
+			String status = lbs.disableTCPPoolMonitor(monitorid);
+			return Collections.singletonMap("Pool Monitor "+monitorid, status);
+		}else
 		if (getReference().getPath().contains(LoadBalancerWebRoutable.ENABLE_STR)) {
 			int status = lbs.healthMonitoring(true);
 			if(status == -1){

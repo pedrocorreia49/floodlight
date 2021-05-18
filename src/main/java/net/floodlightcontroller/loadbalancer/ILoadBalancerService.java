@@ -230,7 +230,7 @@ public interface ILoadBalancerService extends IFloodlightService {
      */
     public String clearAllLb();
 
-    public String enablePoolMonitor(String monitorid);
-    
+    public String enableTCPPoolMonitor(String monitorid);
+    public String disableTCPPoolMonitor(String monitorid);
     public void deleteFlow(Match m, DatapathId dpid);
 }

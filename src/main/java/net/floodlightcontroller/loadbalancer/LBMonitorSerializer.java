@@ -37,6 +37,7 @@ public class LBMonitorSerializer extends JsonSerializer<LBMonitor>{
 		jGen.writeStringField("name", monitor.name);
 		jGen.writeStringField("type", Short.toString(monitor.type));
 		jGen.writeStringField("poolId", monitor.poolId);
+		jGen.writeStringField("status", String.valueOf(monitor.status));
 		jGen.writeEndObject();
 		
 	}
