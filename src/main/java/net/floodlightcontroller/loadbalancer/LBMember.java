@@ -67,13 +67,14 @@ public class LBMember {
 			for (Long bytes : bytesIn) {
 				sumIn += bytes;
 			}
-            memberStats.bytesInDiff = sumIn - memberStats.bytesIn;
+
+            memberStats.bytesInDiff = Math.abs(sumIn - memberStats.bytesIn);
 			memberStats.bytesIn = sumIn;
 
 			for (Long bytes : bytesOut) {
 				sumOut += bytes;
 			}
-            memberStats.bytesOutDiff = sumOut-memberStats.bytesOut;
+            memberStats.bytesOutDiff = Math.abs(sumOut-memberStats.bytesOut);
 			memberStats.bytesOut = sumOut;
 			memberStats.activeFlows = activeFlows;
 		}

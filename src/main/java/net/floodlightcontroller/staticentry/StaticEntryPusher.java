@@ -696,7 +696,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 							"timeout flow from switch {}. Removing it from the SFP DB", msg, sw);
 				} else if (OFFlowRemovedReason.HARD_TIMEOUT == reason || OFFlowRemovedReason.IDLE_TIMEOUT == reason) {
 					/* Remove the Flow from the DB since it timed out */
-					log.info("Received an IDLE or HARD timeout for an SFP flow. Removing it from the SFP DB");
+					log.debug("Received an IDLE or HARD timeout for an SFP flow. Removing it from the SFP DB");
 				} else {
 					log.debug("Received flow_removed message for reason {}. Removing it from the SFP DB", reason);
 				}
@@ -746,7 +746,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 				 * the reason for the flow being removed.
 				 */
 				if (flowToRemove != null) {
-					log.info("Removing flow {} for reason {}", flowToRemove, reason);
+					//log.info("Removing flow {} for reason {}", flowToRemove, reason);
 					deleteEntry(flowToRemove);
 				}
 
@@ -1015,11 +1015,6 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 	@Override
 	public Map<String, OFMessage> getEntries(DatapathId dpid) {
 		Map<String, OFMessage> m = entriesFromStorage.get(dpid.toString());
-		if(m==null){
-			log.info("MAP EMPTY");
-		}else{
-			log.info("NOT EMPTY");
-		}
 		return m == null ? Collections.emptyMap() : m;
 	}
 

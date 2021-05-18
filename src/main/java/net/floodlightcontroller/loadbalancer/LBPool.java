@@ -120,9 +120,9 @@ public class LBPool {
 			return "Weighted Round-Robin";
 		} else if (lbMethod == 4) {
 			return "SLP";
-		}else if(lbMethod==5){
+		} else if (lbMethod == 5) {
 			return "LLM";
-		}else if(lbMethod==6){
+		} else if (lbMethod == 6) {
 			return "LTP";
 		}
 		return "Invalid Method";
@@ -146,31 +146,38 @@ public class LBPool {
 		}
 	}
 
-
-	public String pickLLMember(HashMap<String,LBMember> members){
+	public String pickLLMember(HashMap<String, LBMember> members, HashMap<String, Short> status) {
 		long leastLoaded = 0;
 		String picked = null;
-		for(String memberId: this.members){
-			if(members.get(memberId)!=null){
-				log.info("MEMBER {} with {} bytes!",memberId,members.get(memberId).memberStats.bytesInDiff);
-				if(picked == null){
-					picked = memberId;
-					leastLoaded = members.get(memberId).memberStats.bytesInDiff;
-				}else if(leastLoaded > members.get(memberId).memberStats.bytesInDiff){
-					picked = memberId;
-					leastLoaded = members.get(memberId).memberStats.bytesInDiff;
-				}else if(leastLoaded == members.get(memberId).memberStats.bytesInDiff){
-					if(members.get(picked).memberStats.activeFlows > members.get(memberId).memberStats.getActiveFlows()){
+		for (String memberId : this.members) {
+			if (members.get(memberId) != null) {
+				if (status.get(memberId) != null && status.get(memberId)!=-1) {
+
+					log.info("MEMBER {} with {} bytes!", memberId, members.get(memberId).memberStats.bytesInDiff);
+					if (picked == null) {
 						picked = memberId;
+						leastLoaded = members.get(memberId).memberStats.bytesInDiff;
+					} else if (leastLoaded > members.get(memberId).memberStats.bytesInDiff) {
+						picked = memberId;
+						leastLoaded = members.get(memberId).memberStats.bytesInDiff;
+					} else if (leastLoaded == members.get(memberId).memberStats.bytesInDiff) {
+						if (members.get(picked).memberStats.activeFlows > members.get(memberId).memberStats
+								.getActiveFlows()) {
+							picked = memberId;
+						}
 					}
+				}else{
+					log.info("MEMBER {} is down",memberId);
 				}
 			}
 		}
-		log.info("MEMBER {} PICKED ON LLM METHOD WITH {} BYTES IN",picked,leastLoaded);
+
+		log.info("MEMBER {} PICKED ON LLM METHOD WITH {} BYTES IN", picked, leastLoaded);
 		return picked;
 
 	}
-	public Pair<String,ArrayList<Path>> pickMember(IDeviceService ids, ITopologyService its, IPClient client,
+
+	public Pair<String, ArrayList<Path>> pickMember(IDeviceService ids, ITopologyService its, IPClient client,
 			HashMap<String, LBMember> totalMembers, IOFSwitch sw, OFPacketIn pi, IRoutingService routingEngineService,
 			HashMap<String, Short> memberStatus) {
 		Collection<? extends IDevice> allDevices = ids.getAllDevices();
@@ -284,7 +291,7 @@ public class LBPool {
 							ArrayList<Path> aux = new ArrayList<>();
 							aux.add((routeIn));
 							aux.add((routeOut));
-							membersPaths.put(s,aux);
+							membersPaths.put(s, aux);
 							membersLatency.put(s, routeIn.getLatency().getValue() + routeOut.getLatency().getValue());
 							membersHopsCount.put(s, routeIn.getHopCount() + routeOut.getHopCount());
 							log.info("Member {} has latency {} and hopCounts {}", s, membersLatency.get(s),
@@ -352,7 +359,7 @@ public class LBPool {
 		// log.info("Member {} picked by hop count",picked);
 		// }
 
-		return new Pair<String,ArrayList<Path>>(picked,membersPaths.get(picked));
+		return new Pair<String, ArrayList<Path>>(picked, membersPaths.get(picked));
 	}
 
 	public String pickMember(IPClient client, HashMap<String, U64> membersBandwidth,

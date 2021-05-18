@@ -149,7 +149,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 	protected static boolean isMonitoringEnabled = false;
 
-	private static final int flowStatsInterval = 15;
+	private static final int flowStatsInterval = 1;
 
 	protected enum TLS {
 		HTTPS(TransportPort.of(443)), IMAP(TransportPort.of(993)), POP(TransportPort.of(995)),
@@ -412,7 +412,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 						
 					} else if (pool.lbMethod == LBPool.LLM && statisticsService != null) {
-						member = members.get(pool.pickLLMember(members));
+						member = members.get(pool.pickLLMember(members,memberStatus));
 					} else {
 						member = members.get(pool.pickMember(client, memberPortBandwidth, memberWeights, memberStatus));
 					}
@@ -1235,6 +1235,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		}
 		members.put(member.id, member);
 		memberIdToIp.put(member.id, member.address);
+		memberStatus.put(member.id,(short)0);
 		return member;
 	}
 
@@ -1504,6 +1505,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 	public void deleteFlow(Match m, DatapathId dpid) {
 		Pair<Match, DatapathId> pair = new Pair<>(m, dpid);
 		if(pair!=null){
+			log.info("Removing flow");
 			flowToMemberId.remove(pair);
 			flowToVipId.remove(pair);
 		}
@@ -1573,8 +1575,8 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		monitorsThreads = new HashMap<>();
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetPoolStats(), flowStatsInterval,
 				flowStatsInterval, TimeUnit.SECONDS);
-		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetMemberStats(), flowStatsInterval,
-				flowStatsInterval, TimeUnit.SECONDS);
+		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetMemberStats(), 100,
+				100, TimeUnit.MILLISECONDS);
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 15, 15, TimeUnit.SECONDS);
 
 	}
