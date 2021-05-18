@@ -35,7 +35,11 @@ public class LBMonitorSerializer extends JsonSerializer<LBMonitor>{
 		jGen.writeStringField("id", monitor.id);
 		jGen.writeStringField("address", String.valueOf(IPv4Address.of(monitor.address)));
 		jGen.writeStringField("name", monitor.name);
-		jGen.writeStringField("type", Short.toString(monitor.type));
+		if(monitor.type == 1){
+			jGen.writeStringField("type", "ICMP");
+		}else if(monitor.type == 6){
+			jGen.writeStringField("type", "TCP");
+		}
 		jGen.writeStringField("poolId", monitor.poolId);
 		jGen.writeEndObject();
 		
