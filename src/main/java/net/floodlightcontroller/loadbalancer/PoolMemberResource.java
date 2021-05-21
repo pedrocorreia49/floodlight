@@ -34,6 +34,8 @@ public class PoolMemberResource extends ServerResource {
                 (ILoadBalancerService)getContext().getAttributes().
                     get(ILoadBalancerService.class.getCanonicalName());
         
+        log.info("PEDIDO GET AOS MEMBROS");
+
         String poolId = (String) getRequestAttributes().get("pool");
         if (poolId!=null)
             return lbs.listMembersByPool(poolId);

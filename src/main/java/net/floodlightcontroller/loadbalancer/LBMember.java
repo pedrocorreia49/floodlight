@@ -60,7 +60,7 @@ public class LBMember {
     }
 
     public void setMemberStatistics(ArrayList<Long> bytesIn, ArrayList<Long> bytesOut, int activeFlows) {
-		if (!bytesIn.isEmpty() && !bytesOut.isEmpty()) {
+		if (!bytesIn.isEmpty()) {
 			long sumIn = 0;
 			long sumOut = 0;
 
@@ -76,7 +76,7 @@ public class LBMember {
 			}
             memberStats.bytesOutDiff = Math.abs(sumOut-memberStats.bytesOut);
 			memberStats.bytesOut = sumOut;
-			memberStats.activeFlows = activeFlows;
+			memberStats.setActiveFlows(activeFlows);
 		}
 	}
 

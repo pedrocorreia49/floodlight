@@ -146,21 +146,51 @@ public class LBPool {
 		}
 	}
 
+	public String pickLTPMember(HashMap<String, LBMember> members, HashMap<String, Short> status){
+		double highestThroughput = 0;
+		String picked = null;
+		for (String memberId : this.members) {
+			if (members.get(memberId) != null) {
+				if (status.get(memberId) != null && status.get(memberId)!=-1 && members.get(memberId).throughput != -1) {
+
+					log.info("MEMBER {} with {} throughput!", memberId, members.get(memberId).throughput);
+					if (picked == null) {
+						picked = memberId;
+						highestThroughput = members.get(memberId).throughput;
+					} else if (highestThroughput < members.get(memberId).throughput){
+						picked = memberId;
+						highestThroughput = members.get(memberId).throughput;
+					} else if (highestThroughput == members.get(memberId).throughput) {
+						if (members.get(picked).memberStats.activeFlows > members.get(memberId).memberStats
+								.getActiveFlows()) {
+							picked = memberId;
+						}
+					}
+				}else{
+					log.info("MEMBER {} is down",memberId);
+				}
+			}
+		}
+
+		log.info("MEMBER {} PICKED ON LTP METHOD WITH {} THROUGHPUT", picked, highestThroughput);
+		return picked;
+	}
+
 	public String pickLLMember(HashMap<String, LBMember> members, HashMap<String, Short> status) {
 		long leastLoaded = 0;
 		String picked = null;
 		for (String memberId : this.members) {
 			if (members.get(memberId) != null) {
-				if (status.get(memberId) != null && status.get(memberId)!=-1) {
+				if (status.get(memberId) != null&& status.get(memberId)!=-1) {
 
-					log.info("MEMBER {} with {} bytes!", memberId, members.get(memberId).memberStats.bytesInDiff);
+					log.info("MEMBER {} with {} bytes!", memberId, members.get(memberId).memberStats.bytesIn);
 					if (picked == null) {
 						picked = memberId;
-						leastLoaded = members.get(memberId).memberStats.bytesInDiff;
-					} else if (leastLoaded > members.get(memberId).memberStats.bytesInDiff) {
+						leastLoaded = members.get(memberId).memberStats.bytesIn;
+					} else if (leastLoaded > members.get(memberId).memberStats.bytesIn) {
 						picked = memberId;
-						leastLoaded = members.get(memberId).memberStats.bytesInDiff;
-					} else if (leastLoaded == members.get(memberId).memberStats.bytesInDiff) {
+						leastLoaded = members.get(memberId).memberStats.bytesIn;
+					} else if (leastLoaded == members.get(memberId).memberStats.bytesIn) {
 						if (members.get(picked).memberStats.activeFlows > members.get(memberId).memberStats
 								.getActiveFlows()) {
 							picked = memberId;
@@ -193,7 +223,7 @@ public class LBPool {
 		ArrayList<String> leastLatencyMembers = new ArrayList<>();
 		for (String s : members) {
 			if (!memberStatus.isEmpty()) {
-				if (memberStatus.get(s) != 1) {
+				if (memberStatus.get(s) < 0) {
 					log.info("MEMBER {} NOT AVAILABLE STATUS {}", s, memberStatus.get(s));
 					continue;
 				}

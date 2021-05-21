@@ -19,7 +19,7 @@ def myNetwork():
     info( '*** Adding controller\n' )
     c0=net.addController(name='c0',
                       controller=RemoteController,
-                      ip='192.168.1.10',
+                      ip='172.26.79.42',
                       protocol='tcp',
                       port=6653)
 
@@ -43,8 +43,9 @@ def myNetwork():
     h8 = net.addHost('h8', cls=Host, ip='10.0.0.8', defaultRoute=None)
 
     info( '*** Add links\n')
+    s4h5={'bw':300}
     net.addLink(s2, h4)
-    net.addLink(s4, h5)
+    net.addLink(s4, h5,cls=TCLink,**s4h5)
     net.addLink(h7, s5)
     net.addLink(h6, s1)
     net.addLink(h8, s2)
@@ -56,7 +57,7 @@ def myNetwork():
     net.addLink(s1, s2, cls=TCLink , **s1s2)
     s3s4 = {'bw':100}
     net.addLink(s3, s4, cls=TCLink , **s3s4)
-    s4s5 = {'bw':100}
+    s4s5 = {'bw':60}
     net.addLink(s4, s5, cls=TCLink , **s4s5)
     net.addLink(s5, h2)
     net.addLink(s5, h3)

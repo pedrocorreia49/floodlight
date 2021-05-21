@@ -16,6 +16,9 @@
 
 package net.floodlightcontroller.loadbalancer;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -31,7 +34,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
+import java.lang.*;
+import java.lang.ProcessBuilder;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPacketIn;
@@ -220,6 +224,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 			FloodlightContext cntx = null;
 			monitoringConnections.get(client.ipAddress.getInt()).setState((short) 20);
 			memberStatus.put(connection.getMemberId(), (short) 1);
+			members.get(connection.getMemberId()).status = (short)1;
 			pushPacket(tcpFinAck, sw, OFBufferId.NO_BUFFER, OFPort.CONTROLLER,
 					(pi.getVersion().compareTo(OFVersion.OF_12) < 0) ? pi.getInPort()
 							: pi.getMatch().get(MatchField.IN_PORT),
@@ -227,6 +232,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 		} else if (connection.getState() == 18 && flags == 20) {
 			memberStatus.put(connection.getMemberId(), (short) -1);
+			members.get(connection.getMemberId()).status = (short)-1;
 
 		}
 
@@ -413,6 +419,8 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 						
 					} else if (pool.lbMethod == LBPool.LLM && statisticsService != null) {
 						member = members.get(pool.pickLLMember(members,memberStatus));
+					} else if (pool.lbMethod == LBPool.LTP && statisticsService != null){
+						member = members.get(pool.pickLTPMember(members, memberStatus));
 					} else {
 						member = members.get(pool.pickMember(client, memberPortBandwidth, memberWeights, memberStatus));
 					}
@@ -982,6 +990,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		public void run() {
 			if (!members.isEmpty()) {
 				if (!flowToMemberId.isEmpty()) {
+					log.info("memberstats");
 					for (LBMember member : members.values()) {
 						int flowCounter = 0;
 						FlowRuleStats frs = null;
@@ -1001,13 +1010,14 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 										membersDPID.add(sp.getNodeId());
 									}
 									if (membersDPID.contains(pair.getValue())) { // if switch is connected to a //
-																					// member
+																			// member
 										bytesIn.add(frs.getByteCount().getValue());
 									} else
 										bytesOut.add(frs.getByteCount().getValue());
 								}
 							}
 						}
+						log.info("flow counter {}",flowCounter);
 						member.setMemberStatistics(bytesIn, bytesOut, flowCounter);
 					}
 				}
@@ -1158,6 +1168,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 
 	@Override
 	public LBPool createPool(LBPool pool) {
+		log.info("Creating pool");
 		if (pool == null)
 			pool = new LBPool();
 
@@ -1169,6 +1180,7 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 			pool.vipId = null;
 			pools.put(pool.id, pool);
 		}
+
 		return pool;
 	}
 
@@ -1233,7 +1245,9 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 			log.error("Member must be specified with existing pool_id");
 			return null;
 		}
+		member.status = (short) 0;
 		members.put(member.id, member);
+		
 		memberIdToIp.put(member.id, member.address);
 		memberStatus.put(member.id,(short)0);
 		return member;
@@ -1575,9 +1589,9 @@ public class LoadBalancer implements IFloodlightModule, ILoadBalancerService, IO
 		monitorsThreads = new HashMap<>();
 		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetPoolStats(), flowStatsInterval,
 				flowStatsInterval, TimeUnit.SECONDS);
-		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetMemberStats(), 100,
-				100, TimeUnit.MILLISECONDS);
-		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 15, 15, TimeUnit.SECONDS);
+		threadService.getScheduledExecutor().scheduleAtFixedRate(new SetMemberStats(), 5,
+				5, TimeUnit.SECONDS);
+		threadService.getScheduledExecutor().scheduleAtFixedRate(new deleteIdleConnections(), 60, 60, TimeUnit.SECONDS);
 
 	}
 

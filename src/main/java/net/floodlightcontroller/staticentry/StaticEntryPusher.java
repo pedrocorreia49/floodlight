@@ -730,7 +730,7 @@ implements IOFSwitchListener, IFloodlightModule, IStaticEntryPusherService, ISto
 							log.info("DID NULL");
 						}
 						loadBalancerService.deleteFlow(msg.getMatch(),did);
-						log.info("Flow removed "+flowToRemove);
+						//log.info("Flow removed "+flowToRemove);
 						break;
 					}
 				}

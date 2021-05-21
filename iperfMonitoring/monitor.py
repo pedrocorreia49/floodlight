@@ -5,7 +5,7 @@ import json
 import requests
 import sys
 
-controller_ip_port = '192.168.56.1:8080'
+controller_ip_port = 'localhost:8080'
 
 def getThroughput(pool_id, id, ip):
     p = subprocess.Popen('iperf3 -c ' + ip + ' -p 500 -w 500 k -J --connect-timeout 10000', stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -48,14 +48,12 @@ if __name__ == "__main__":
     threadsP = list()
 
     while True:
-        hasLTPPool = False
         threadsP.clear()
         r = requests.get('http://' + controller_ip_port + '/quantum/v1.0/pools/')
         pools = json.loads(r.text)
         for pool in pools:
             pool_id = pool['id']
             if(pool['lbMethod'] == 'LTP'):
-                hasLTPPool = True
                 x = threading.Thread(target=handlePool, args=(pool_id, ))
                 threadsP.append(x)
                 x.start()
@@ -63,8 +61,5 @@ if __name__ == "__main__":
         for thread in threadsP:
             thread.join()
 
-        if(hasLTPPool == False):
-            sys.exit()
-
         print('Tests done, waiting...\n')
-        time.sleep(20)
+        time.sleep(5)

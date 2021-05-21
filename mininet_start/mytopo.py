@@ -11,6 +11,7 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.topo import Topo
 from mininet.node import RemoteController, OVSSwitch
+from mininet.link import TCLink
 
 class MyTopo( Topo ):
     "Minimal topology with a single switch and two hosts"
@@ -32,18 +33,22 @@ class MyTopo( Topo ):
         s4 = self.addSwitch('s4')
         s5 = self.addSwitch('s5')
 
+        s100 = {'bw':100}
+        s20 = {'bw':20}
+        s300 = {'bw':300}
+
         # Add links between the switch and each host
-        self.addLink(s1, s2)
-        self.addLink(s2, s3)
-        self.addLink(s3, s4)
-        self.addLink(s4, s5)
-        self.addLink(s5, h2)
-        self.addLink(s5, h3)
-        self.addLink(s1, h1)
-        self.addLink(s2, h4)
-        self.addLink(s4, h5)
-        self.addLink(h6, s1)
-        self.addLink(h7, s5)
+        self.addLink(s1, s2, cls=TCLink)
+        self.addLink(s2, s3, cls=TCLink)
+        self.addLink(s3, s4, cls=TCLink)
+        self.addLink(s4, s5, cls=TCLink)
+        self.addLink(s5, h2, cls=TCLink)
+        self.addLink(s5, h3, cls=TCLink)
+        self.addLink(s1, h1, cls=TCLink)
+        self.addLink(s2, h4, cls=TCLink)
+        self.addLink(s4, h5, cls=TCLink)
+        self.addLink(h6, s1, cls=TCLink, **s20)
+        self.addLink(h7, s5, cls=TCLink, **s300)
 
 def runMyTopo():
     "Bootstrap a Mininet network using the Minimal Topology"

@@ -48,7 +48,7 @@ public class LBMemberSerializer extends JsonSerializer<LBMember>{
         if(member.status == -1){
         	jGen.writeStringField("status", "Inactive");
         }
-        jGen.writeStringField("flows",String.valueOf(member.memberStats.totalFlows));
+        jGen.writeStringField("flows",String.valueOf(member.memberStats.activeFlows));
         jGen.writeStringField("bytesIn", String.valueOf(member.memberStats.bytesIn));
         jGen.writeStringField("throughput", Double.toString(member.throughput));
         jGen.writeEndObject();
